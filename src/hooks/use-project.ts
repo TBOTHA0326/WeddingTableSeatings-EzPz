@@ -23,7 +23,11 @@ export function useProject() {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(project)); setSaveState("saved"); }
       catch { setSaveState("unavailable"); }
     }, 350);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      // Flush pending edits when moving between the two studios or leaving the page.
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(project)); } catch { /* Reported by the next autosave. */ }
+    };
   }, [project, ready]);
   const setTables = useCallback((tables: Table[]) => {
     setProject((current) => ({ ...current, tables }));

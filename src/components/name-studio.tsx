@@ -12,6 +12,7 @@ import { useExport } from "@/hooks/use-export";
 import { Bow } from "./bow";
 import { StudioControls } from "./studio-controls";
 import { PrintGuide } from "./print-guide";
+import { StudioNav } from "./studio-nav";
 
 function lightInk(hex: string) {
   const rgb = hex.slice(1).match(/.{2}/g)!.map((part) => parseInt(part, 16));
@@ -61,6 +62,7 @@ export function NameStudio() {
       <div className="header-actions"><span className="saved-status"><span className={saveState === "unavailable" ? "save-dot offline" : "save-dot"} />{saveState === "saved" ? "Saved on this device" : saveState === "unavailable" ? "Autosave unavailable" : "Saving your details…"}</span><button className="help-button" onClick={() => setShowGuide(true)}><CircleHelp size={16} /><span>Print guide</span></button></div>
     </header>
     <main className="studio-main">
+      <StudioNav active="window" />
       <section className="studio-intro"><div><p className="eyebrow"><span className="tiny-star">✳</span> A LITTLE DETAIL, A LOT OF LOVE</p><h1>Everyone has a place.<br className="mobile-break" /> <em>Make it beautiful.</em></h1><p>A lovely seating window, made simple. Your people, your panes, your perfect lettering.</p></div><div className="intro-decoration" aria-hidden="true"><span>made with</span><Heart size={28} strokeWidth={1} /><span>a little love</span></div></section>
       <div className="workspace">
         <StudioControls tables={tables} activeId={activeTable.id} setActiveId={setActiveId} setTables={setTables} settings={settings} updateSettings={updateSettings} guests={totalGuests} sheets={layout.pages.length} paneFit={allFit && enoughPanes} format={exports.format} setFormat={exports.setFormat} canExport={canExport} busy={exports.busy} progress={exports.progress} download={() => void exports.download(layout.pages, settings.color)} ready={ready} />

@@ -33,7 +33,7 @@ export function withPngResolution(bytes: Uint8Array, dpi: number): Uint8Array<Ar
   return output;
 }
 
-export async function svgToPng(svg: string): Promise<Blob> {
+export async function svgToPng(svg: string, background?: string): Promise<Blob> {
   const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
   const canvas = document.createElement("canvas");
   canvas.width = PNG_WIDTH;
@@ -47,6 +47,7 @@ export async function svgToPng(svg: string): Promise<Blob> {
     });
     const context = canvas.getContext("2d");
     if (!context) throw new Error("This browser could not create a PNG. Please download SVG instead.");
+    if (background) { context.fillStyle = background; context.fillRect(0, 0, PNG_WIDTH, PNG_HEIGHT); }
     context.drawImage(image, 0, 0, PNG_WIDTH, PNG_HEIGHT);
     const png = await new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("PNG export failed. Please try SVG.")), "image/png"));
     const data = withPngResolution(new Uint8Array(await png.arrayBuffer()), PNG_DPI);

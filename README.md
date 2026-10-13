@@ -25,7 +25,17 @@ Open [localhost:3000](http://localhost:3000).
 
 The sample contains three tables with eight guests each. Replace these with your guest list. Names and settings save automatically in this browser’s local storage. No account, database, or server upload is involved. Up to 60 tables and 1,000 guests are supported.
 
-## Print downloads
+## Fold-over seating cards
+
+Open **Seating cards** in the studio navigation, or visit `/seating-cards`. The page shares your existing guest tables and prints one fold-over card per guest. Names and compound surnames appear together on one line in the lower-right area of the bottom panel; the upper panel stays blank.
+
+The cards embed `public/ActualCardArtwork.jpeg` exactly as supplied, including both panels, border, florals, and centre strip. The original artwork's 787 × 1150 proportions remain fixed. The default width is 90 mm (standing face approximately 90 × 65.8 mm), fitting four complete cards per A4 sheet. Adjust the width to suit your cardstock.
+
+Vintage Heirloom is the starting font, as a similar style rather than a confirmed match to `public/FontAndPlacementReference.jpeg`. **Import exact font** accepts TTF, OTF, WOFF, or WOFF2 files up to 2 MB. Imported fonts are parsed locally and saved in this browser's IndexedDB; they are not uploaded or bundled into the app. Missing font characters block downloads. Long names automatically scale to fit the reference's name area, including their flourishes.
+
+Download all tables or a selected table as A4 SVGs with embedded artwork and outlined lettering, or opaque 300-DPI PNGs. Multiple pages are packaged in a ZIP. Preview the complete card, its standing front face, or A4 sheets; download a current sheet individually. Optional cut and fold guides are included in the export when enabled. **Print / Save as PDF** opens the browser's print dialog with A4 pages. Print at actual size / 100%, disable headers and footers, then cut each complete card and fold through its centre.
+
+## Name lettering downloads
 
 **SVG** is the recommended printer file. It is exactly 210 × 297 mm with an A4 viewBox, transparent background, and all lettering converted to vector paths using Fontkit. It has no embedded fonts or external resources.
 
