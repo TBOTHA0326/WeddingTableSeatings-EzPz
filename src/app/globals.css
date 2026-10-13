@@ -294,7 +294,7 @@ input[type="checkbox"] { accent-color: var(--color-camel-dark); }
 .card-artwork { display: block; width: 100%; background: #f4efe6; box-shadow: var(--shadow-paper); }
 .card-front-preview { width: 580px; }
 .card-fold-label { position: absolute; top: 50%; right: -45px; transform: translateY(-50%); font-size: 6px; letter-spacing: 0.8px; color: var(--color-muted); width: 42px; padding-left: 6px; }
-.card-sheet-preview { width: 385px; max-width: 100%; box-shadow: var(--shadow-paper); }
+.card-sheet-preview { width: 460px; max-width: 100%; box-shadow: var(--shadow-paper); }
 .card-sheet-preview > svg { display: block; width: 100%; height: auto; }
 .card-guest-caption { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .card-fit-note { padding: 0 24px 15px; font-size: 10px; line-height: 1.7; color: var(--color-muted); }

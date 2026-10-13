@@ -7,8 +7,9 @@ export const CARD_ASPECT = 1150 / 787;
 export const CARD_MARGIN = 10;
 export const CARD_GAP = 4;
 export const CARD_STORAGE_KEY = "ever-after-cards-v1";
-export type CardSettings = { width: number; fontSize: number; fontId: FontId | "custom"; guides: boolean };
-export const DEFAULT_CARD_SETTINGS: CardSettings = { width: 90, fontSize: 32, fontId: "heirloom", guides: true };
+export const SIX_CARD_WIDTH = Math.floor((A4.height - 2 * CARD_MARGIN - 2 * CARD_GAP) / (3 * CARD_ASPECT));
+export type CardSettings = { width: number; fontSize: number; fontId: FontId | "custom"; guides: boolean; sheetLayout: "six" | "custom" };
+export const DEFAULT_CARD_SETTINGS: CardSettings = { width: SIX_CARD_WIDTH, fontSize: 32, fontId: "heirloom", guides: true, sheetLayout: "six" };
 export type CardGuest = { id: string; name: string; table: string };
 export type SeatingCard = { guest: CardGuest; label: Label; scale: number; x: number; y: number };
 export type CardLayout = { pages: SeatingCard[][]; errors: string[]; capacity: number; height: number; resized: number };
@@ -24,20 +25,22 @@ export function restoreCardSettings(raw: string | null): CardSettings {
     const value = JSON.parse(raw ?? "null");
     if (!value) return DEFAULT_CARD_SETTINGS;
     return {
-      width: typeof value.width === "number" && Number.isFinite(value.width) ? Math.min(180, Math.max(60, value.width)) : 90,
+      // Older saved settings adopt the requested six-card default; explicit overrides persist.
+      width: value.sheetLayout === "custom" && typeof value.width === "number" && Number.isFinite(value.width) ? Math.min(180, Math.max(60, value.width)) : SIX_CARD_WIDTH,
       fontSize: typeof value.fontSize === "number" && Number.isFinite(value.fontSize) ? Math.min(60, Math.max(12, value.fontSize)) : 32,
       fontId: ["heirloom", "angelface", "great-vibes", "allura", "cormorant", "custom"].includes(value.fontId) ? value.fontId : "heirloom",
       guides: value.guides !== false,
+      sheetLayout: value.sheetLayout === "custom" ? "custom" : "six",
     };
   } catch { return DEFAULT_CARD_SETTINGS; }
 }
 
 export function createCardLayout(font: Font, guests: CardGuest[], settings: CardSettings): CardLayout {
   const height = settings.width * CARD_ASPECT;
-  const columns = Math.floor((A4.width - 2 * CARD_MARGIN + CARD_GAP) / (settings.width + CARD_GAP));
-  const rows = Math.floor((A4.height - 2 * CARD_MARGIN + CARD_GAP) / (height + CARD_GAP));
+  const columns = settings.sheetLayout === "six" ? 2 : Math.floor((A4.width - 2 * CARD_MARGIN + CARD_GAP) / (settings.width + CARD_GAP));
+  const rows = settings.sheetLayout === "six" ? 3 : Math.floor((A4.height - 2 * CARD_MARGIN + CARD_GAP) / (height + CARD_GAP));
   const result: CardLayout = { pages: [], errors: [], capacity: columns * rows, height, resized: 0 };
-  if (!Number.isFinite(height) || settings.width < 60 || settings.width > 180 || !Number.isFinite(settings.fontSize) || settings.fontSize < 12 || settings.fontSize > 60 || !result.capacity) {
+  if (!Number.isFinite(height) || settings.width < 60 || settings.width > 180 || !Number.isFinite(settings.fontSize) || settings.fontSize < 12 || settings.fontSize > 60 || !result.capacity || columns * settings.width + (columns - 1) * CARD_GAP > A4.width - 2 * CARD_MARGIN || rows * height + (rows - 1) * CARD_GAP > A4.height - 2 * CARD_MARGIN) {
     result.errors.push("Choose a card size that fits inside an A4 sheet."); return result;
   }
   if (guests.length > MAX_GUESTS) { result.errors.push(`Please keep the project to ${MAX_GUESTS} guests or fewer.`); return result; }

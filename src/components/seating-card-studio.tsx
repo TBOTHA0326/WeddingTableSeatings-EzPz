@@ -9,7 +9,7 @@ import { useProject } from "@/hooks/use-project";
 import { useCardAssets } from "@/hooks/use-card-assets";
 import { FONTS, MAX_GUESTS, parseNames } from "@/lib/project";
 import { downloadBlob, svgToPng, type ExportFormat } from "@/lib/export";
-import { CARD_ASPECT, CARD_STORAGE_KEY, DEFAULT_CARD_SETTINGS, cardGuests, cardMarkup, cardSheetSvg, createCardLayout, restoreCardSettings, type CardSettings } from "@/lib/seating-cards";
+import { CARD_ASPECT, CARD_STORAGE_KEY, DEFAULT_CARD_SETTINGS, SIX_CARD_WIDTH, cardGuests, cardMarkup, cardSheetSvg, createCardLayout, restoreCardSettings, type CardSettings } from "@/lib/seating-cards";
 import { Bow } from "./bow";
 import { StudioNav } from "./studio-nav";
 
@@ -37,7 +37,7 @@ export function SeatingCardStudio() {
   const assets = useCardAssets(settings.fontId);
   const [activeId, setActiveId] = useState("example-1");
   const [scope, setScope] = useState("all");
-  const [view, setView] = useState<"fold" | "front" | "sheets">("fold");
+  const [view, setView] = useState<"fold" | "front" | "sheets">("sheets");
   const [guestIndex, setGuestIndex] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
   const [format, setFormat] = useState<ExportFormat>("png");
@@ -139,7 +139,8 @@ export function SeatingCardStudio() {
               <button className="text-button card-upload-font" onClick={() => fontInput.current?.click()} disabled={!ready || busy}><FileUp size={14} />Import exact font</button><input ref={fontInput} type="file" accept=".ttf,.otf,.woff,.woff2" aria-label="Import exact font file" className="sr-only" tabIndex={-1} onChange={(event) => void uploadFont(event.target.files?.[0])} />
               <p className="field-hint">Use your font file for an exact match. Imported fonts stay on this device. Vintage Heirloom is the starting style.</p>
               <label className="card-field" htmlFor="card-font-size">Name size <span>{settings.fontSize} pt</span></label><input id="card-font-size" type="range" min="12" max="60" value={settings.fontSize} disabled={!ready} onChange={(event) => update({ fontSize: Number(event.target.value) })} /><p className="field-hint">Long names shrink just enough to keep every flourish inside the lower-right name area.</p>
-              <label className="card-field" htmlFor="card-width">Card width <span>mm</span></label><input key={settings.width} id="card-width" className="text-input" type="number" min="60" max="180" step="1" defaultValue={settings.width} disabled={!ready} onBlur={(event) => { const width = Number(event.target.value); const safeWidth = Number.isFinite(width) && event.target.value ? Math.max(60, Math.min(180, width)) : settings.width; event.target.value = String(safeWidth); update({ width: safeWidth }); }} /><p className="field-hint">Standing face: {settings.width} × {(layout.height / 2).toFixed(1)} mm. The original artwork’s proportions stay fixed.</p>
+              <label className="card-field" htmlFor="card-sheet-layout">A4 layout</label><select id="card-sheet-layout" className="text-input" value={settings.sheetLayout} disabled={!ready} onChange={(event) => { const sheetLayout = event.target.value as CardSettings["sheetLayout"]; update(sheetLayout === "six" ? { sheetLayout, width: SIX_CARD_WIDTH } : { sheetLayout }); setPageIndex(0); }}><option value="six">6 cards · 2 columns × 3 rows</option><option value="custom">Custom card width</option></select><p className="field-hint">Six complete fold-over cards per sheet. Change the layout or card width below to override it.</p>
+              <label className="card-field" htmlFor="card-width">Card width <span>mm</span></label><input key={settings.width} id="card-width" className="text-input" type="number" min="60" max="180" step="1" defaultValue={settings.width} disabled={!ready} onBlur={(event) => { const width = Number(event.target.value); const safeWidth = Number.isFinite(width) && event.target.value ? Math.max(60, Math.min(180, width)) : settings.width; event.target.value = String(safeWidth); if (safeWidth !== settings.width) { update({ width: safeWidth, sheetLayout: "custom" }); setPageIndex(0); } }} /><p className="field-hint">Standing face: {settings.width} × {(layout.height / 2).toFixed(1)} mm. The original artwork’s proportions stay fixed.</p>
             </div>
             <div className="card-artwork-note"><Check size={16} /><div><strong>Your original artwork</strong><p>Flowers, border, and texture preserved from your blank reference.</p></div></div>
           </div>
