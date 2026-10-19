@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import JSZip from "jszip";
 
-test("Seating cards share guest tables, print exact artwork with lower-panel outlined names, and paginate", async ({ page }) => {
+test("Seating cards start from the seating window names, use one guest list, print exact artwork with lower-panel outlined names, and paginate", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
@@ -19,18 +19,7 @@ test("Seating cards share guest tables, print exact artwork with lower-panel out
   expect(await page.locator(".card-artwork image").getAttribute("href")).toBe(`data:image/jpeg;base64,${source.toString("base64")}`);
   const nameTransform = await page.locator(".card-artwork [data-name]").getAttribute("transform");
   expect(Number(nameTransform?.match(/translate\([^ ]+ ([^)]+)\)/)?.[1])).toBeGreaterThan(61 * 1150 / 787 / 2);
-  await page.getByLabel("CARDS TO PRINT").selectOption("example-1");
   await page.getByRole("button", { name: "SVG Print ready" }).click();
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download sheet", exact: true }).click();
-  const download = await downloadPromise;
-  const svg = await readFile((await download.path())!, "utf8");
-  expect((svg.match(/<image /g) ?? []).length).toBe(3);
-  expect(svg).toContain('width="210mm" height="297mm"');
-  expect(svg).toContain(`data:image/jpeg;base64,${source.toString("base64")}`);
-  expect(svg).not.toContain("<text");
-  expect(svg).toContain('data-name="Amelia van der Merwe"');
-  await page.getByLabel("CARDS TO PRINT").selectOption("all");
   await page.getByRole("button", { name: "A4 sheets", exact: true }).click();
   await page.getByRole("button", { name: "Next card sheet" }).click();
   await expect(page.locator(".page-navigation")).toContainText("Sheet 2 of 4");
@@ -40,6 +29,20 @@ test("Seating cards share guest tables, print exact artwork with lower-panel out
   expect(zip.file(/\.svg$/)).toHaveLength(4);
   const combined = (await Promise.all(zip.file(/\.svg$/).map((file) => file.async("string")))).join("");
   expect((combined.match(/data-name=/g) ?? []).length).toBe(19);
+  await page.getByLabel("GUEST NAMES", { exact: true }).fill("Tiaan Botha\nAmelia | van der Merwe\nTiaan Botha");
+  await expect(page.locator(".count-badge")).toHaveText("3 guests");
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download sheet", exact: true }).click();
+  const svg = await readFile((await (await downloadPromise).path())!, "utf8");
+  expect((svg.match(/<image /g) ?? []).length).toBe(3);
+  expect(svg).toContain('width="210mm" height="297mm"');
+  expect(svg).toContain(`data:image/jpeg;base64,${source.toString("base64")}`);
+  expect(svg).not.toContain("<text");
+  expect(svg).toContain('data-name="Amelia van der Merwe"');
+  await page.reload();
+  await expect(page.getByLabel("GUEST NAMES", { exact: true })).toHaveValue("Tiaan Botha\nAmelia | van der Merwe\nTiaan Botha");
+  await page.getByRole("link", { name: "Seating window" }).click();
+  await expect(page.getByLabel("GUEST NAMES", { exact: true })).toHaveValue("Tiaan | Botha\nAmelia | van der Merwe\nTiaan | Botha");
   expect(errors).toEqual([]);
 });
 
@@ -47,7 +50,6 @@ test("Card PNG has opaque artwork, correct A4 dimensions, 300 DPI, and optional 
   await page.goto("/seating-cards");
   await expect(page.getByTestId("card-status")).toContainText("Ready to cut & fold");
   await page.getByLabel("GUEST NAMES", { exact: true }).fill("Tiaan | Botha");
-  await page.getByLabel("CARDS TO PRINT").selectOption("example-1");
   await page.getByLabel("Cut & fold guides").uncheck();
   await expect(page.locator(".card-sheet-preview [stroke-dasharray]")).toHaveCount(0);
   const downloadPromise = page.waitForEvent("download");
@@ -120,7 +122,6 @@ test("Six-card A4 preview updates names and a custom layout can be overridden an
   await expect(page.getByLabel("A4 layout", { exact: true })).toHaveValue("six");
   await expect(page.locator(".card-sheet-preview [data-name]")).toHaveCount(6);
   await page.getByLabel("GUEST NAMES", { exact: true }).fill("Tiaan Botha\nAmelia van der Merwe\nOliver Botha\nCharlotte de Villiers\nJames Williams\nIsabella du Plessis");
-  await page.getByLabel("CARDS TO PRINT").selectOption("example-1");
   await expect(page.locator('.card-sheet-preview [data-name="Tiaan Botha"]')).toHaveCount(1);
   await expect(page.locator(".card-sheet-preview [data-name]")).toHaveCount(6);
   await page.getByLabel("Card width").fill("90"); await page.getByLabel("Card width").blur();

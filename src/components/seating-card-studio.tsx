@@ -4,12 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import JSZip from "jszip";
-import { ArrowDownToLine, Check, ChevronLeft, ChevronRight, FileUp, Heart, LoaderCircle, Plus, Printer, Scissors, TriangleAlert } from "lucide-react";
-import { useProject } from "@/hooks/use-project";
+import { ArrowDownToLine, Check, ChevronLeft, ChevronRight, FileUp, Heart, LoaderCircle, Printer, Scissors, TriangleAlert } from "lucide-react";
 import { useCardAssets } from "@/hooks/use-card-assets";
-import { FONTS, MAX_GUESTS, parseNames } from "@/lib/project";
+import { EXAMPLE_TABLES, FONTS, STORAGE_KEY, restoreProject } from "@/lib/project";
 import { downloadBlob, svgToPng, type ExportFormat } from "@/lib/export";
-import { CARD_ASPECT, CARD_STORAGE_KEY, DEFAULT_CARD_SETTINGS, SIX_CARD_WIDTH, cardGuests, cardMarkup, cardSheetSvg, createCardLayout, restoreCardSettings, type CardSettings } from "@/lib/seating-cards";
+import { CARD_ASPECT, CARD_GUESTS_KEY, CARD_STORAGE_KEY, DEFAULT_CARD_SETTINGS, SIX_CARD_WIDTH, cardGuests, cardMarkup, cardSheetSvg, createCardLayout, restoreCardSettings, type CardSettings } from "@/lib/seating-cards";
 import { Bow } from "./bow";
 import { StudioNav } from "./studio-nav";
 
@@ -31,12 +30,32 @@ function useCardSettings() {
   return { settings, ready, saveError, update: (patch: Partial<CardSettings>) => setSettings((current) => ({ ...current, ...patch })) };
 }
 
+function useGuestList() {
+  const [names, setNames] = useState("");
+  const [ready, setReady] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      try {
+        // The first visit starts from the names already entered in the seating window.
+        const saved = localStorage.getItem(CARD_GUESTS_KEY);
+        setNames(saved ?? (restoreProject(localStorage.getItem(STORAGE_KEY))?.tables ?? EXAMPLE_TABLES).map((table) => table.names.trim()).filter(Boolean).join("\n"));
+      } catch { setNames(EXAMPLE_TABLES.map((table) => table.names).join("\n")); setSaveError(true); }
+      setReady(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  useEffect(() => {
+    if (!ready) return;
+    try { localStorage.setItem(CARD_GUESTS_KEY, names); } catch { queueMicrotask(() => setSaveError(true)); }
+  }, [names, ready]);
+  return { names, setNames, ready, saveError };
+}
+
 export function SeatingCardStudio() {
-  const project = useProject();
+  const guestList = useGuestList();
   const { settings, ready, saveError, update } = useCardSettings();
   const assets = useCardAssets(settings.fontId);
-  const [activeId, setActiveId] = useState("example-1");
-  const [scope, setScope] = useState("all");
   const [view, setView] = useState<"fold" | "front" | "sheets">("sheets");
   const [guestIndex, setGuestIndex] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
@@ -46,9 +65,7 @@ export function SeatingCardStudio() {
   const [actionError, setActionError] = useState("");
   const fontInput = useRef<HTMLInputElement>(null);
   const namesInput = useRef<HTMLInputElement>(null);
-  const active = project.tables.find((table) => table.id === activeId) ?? project.tables[0];
-  const allGuests = useMemo(() => cardGuests(project.tables), [project.tables]);
-  const guests = useMemo(() => scope === "all" ? allGuests : cardGuests(project.tables.filter((table) => table.id === scope)), [allGuests, project.tables, scope]);
+  const guests = useMemo(() => cardGuests(guestList.names), [guestList.names]);
   const layout = useMemo(() => {
     if (!assets.font) return { pages: [], errors: [], capacity: 0, height: settings.width * CARD_ASPECT, resized: 0 };
     try { return createCardLayout(assets.font, guests, settings); }
@@ -58,16 +75,10 @@ export function SeatingCardStudio() {
   const effectiveGuest = Math.min(guestIndex, Math.max(0, cards.length - 1));
   const effectivePage = Math.min(pageIndex, Math.max(0, layout.pages.length - 1));
   const current = cards[effectiveGuest];
-  const loading = !ready || !project.ready || (!assets.font && !assets.error) || (!assets.artwork && !assets.error);
-  const errors = [...layout.errors, ...(allGuests.length > MAX_GUESTS ? [`Please keep the project to ${MAX_GUESTS} guests or fewer.`] : []), ...(assets.error ? [assets.error] : []), ...(actionError ? [actionError] : [])];
+  const loading = !ready || !guestList.ready || (!assets.font && !assets.error) || (!assets.artwork && !assets.error);
+  const errors = [...layout.errors, ...(assets.error ? [assets.error] : []), ...(actionError ? [actionError] : [])];
   const canExport = !loading && !errors.length && cards.length > 0 && !!assets.artwork && !busy;
-  const changeNames = (names: string) => project.setTables(project.tables.map((table) => table.id === active.id ? { ...table, names } : table));
-  const addTable = () => {
-    let number = 1;
-    while (project.tables.some((table) => table.number === String(number))) number++;
-    const id = crypto.randomUUID();
-    project.setTables([...project.tables, { id, number: String(number), names: "" }]); setActiveId(id);
-  };
+  const changeNames = (names: string) => { guestList.setNames(names); setPageIndex(0); setGuestIndex(0); };
   const uploadFont = async (file?: File) => {
     if (!file) return;
     setBusy(true); setActionError("");
@@ -124,16 +135,14 @@ export function SeatingCardStudio() {
   };
 
   return <div className="studio-app card-studio">
-    <header className="site-header"><Link className="brand" href="/" aria-label="Ever After home"><Bow /><span><strong>ever after<span className="brand-period">.</span></strong><small>THE WEDDING NAME STUDIO</small></span></Link><p className="header-motto">A little welcome, for every seat.</p><span className="saved-status"><span className="save-dot" />{saveError || project.saveState === "unavailable" ? "Autosave unavailable" : project.saveState === "saved" ? "Saved on this device" : "Saving your details…"}</span></header>
+    <header className="site-header"><Link className="brand" href="/" aria-label="Ever After home"><Bow /><span><strong>ever after<span className="brand-period">.</span></strong><small>THE WEDDING NAME STUDIO</small></span></Link><p className="header-motto">A little welcome, for every seat.</p><span className="saved-status"><span className="save-dot" />{saveError || guestList.saveError ? "Autosave unavailable" : ready && guestList.ready ? "Saved on this device" : "Saving your details…"}</span></header>
     <main className="studio-main"><StudioNav active="cards" />
       <section className="studio-intro"><div><p className="eyebrow"><span className="tiny-star">✳</span> A NAME, A SEAT, A LITTLE KEEPSAKE</p><h1>A warm welcome.<br className="mobile-break" /> <em>Beautifully folded.</em></h1><p>Your original artwork. Every guest’s name. Ready to cut, fold, and place on the table.</p></div><div className="intro-decoration" aria-hidden="true"><span>made for</span><Heart size={28} strokeWidth={1} /><span>your people</span></div></section>
       <div className="workspace">
         <aside className="controls-panel card-controls" aria-label="Seating card settings">
           <div className="card-controls-body">
-            <div className="section-heading"><p className="eyebrow">01 / YOUR FAVOURITE PEOPLE</p><span className="count-badge">{allGuests.length} guests</span></div><h2>One for every guest.</h2><p className="section-description">Your guest tables are shared with the seating window.</p>
-            <div className="table-selector" aria-label="Select a table">{project.tables.map((table) => <button className={`table-chip ${table.id === active.id ? "selected" : ""}`} key={table.id} aria-pressed={table.id === active.id} onClick={() => setActiveId(table.id)}>Table {table.number || "?"}<span>{parseNames(table.names).length}</span></button>)}<button className="table-chip add-chip" aria-label="Add a table" onClick={addTable} disabled={!project.ready || project.tables.length >= 60}><Plus size={15} /></button></div>
-            <label className="field-label" htmlFor="card-table">TABLE NUMBER</label><input id="card-table" className="text-input" value={active.number} maxLength={20} disabled={!project.ready} onChange={(event) => project.setTables(project.tables.map((table) => table.id === active.id ? { ...table, number: event.target.value } : table))} />
-            <div className="table-editor-header guest-label"><label className="field-label" htmlFor="card-names">GUEST NAMES</label><button className="text-button" disabled={!project.ready} onClick={() => namesInput.current?.click()}><FileUp size={13} />Import .txt</button></div><textarea id="card-names" className="names-input" value={active.names} disabled={!project.ready} spellCheck={false} aria-describedby="card-names-hint" onChange={(event) => changeNames(event.target.value)} placeholder={"Tiaan | Botha\nAmelia | van der Merwe"} /><p className="field-hint" id="card-names-hint">One guest per line. First name and surname print together on one line. The <span className="pipe-example">|</span> is removed.</p>
+            <div className="section-heading"><p className="eyebrow">01 / YOUR FAVOURITE PEOPLE</p><span className="count-badge">{guests.length} guests</span></div><h2>One for every guest.</h2><p className="section-description">Paste your whole guest list. No tables needed.</p>
+            <div className="table-editor-header guest-label"><label className="field-label" htmlFor="card-names">GUEST NAMES</label><button className="text-button" disabled={!guestList.ready} onClick={() => namesInput.current?.click()}><FileUp size={13} />Import .txt</button></div><textarea id="card-names" className="names-input" value={guestList.names} disabled={!guestList.ready} spellCheck={false} aria-describedby="card-names-hint" onChange={(event) => changeNames(event.target.value)} placeholder={"Tiaan Botha\nAmelia van der Merwe"} /><p className="field-hint" id="card-names-hint">One guest per line, first name and surname. Each name gets its own card.</p>
             <input type="file" ref={namesInput} accept=".txt,text/plain" className="sr-only" tabIndex={-1} aria-label="Import guest names file" onChange={(event) => void importNames(event.target.files?.[0])} />
             <div className="card-control-section"><p className="eyebrow">02 / THE FINISHING TOUCHES</p><label className="card-field" htmlFor="card-font">Name lettering</label><select id="card-font" className="text-input" value={settings.fontId} disabled={!ready || busy} onChange={(event) => { setActionError(""); update({ fontId: event.target.value as CardSettings["fontId"] }); }}>{FONTS.map((font) => <option key={font.id} value={font.id}>{font.name}</option>)}<option value="custom">Imported font{settings.fontId === "custom" && assets.fontName ? ` · ${assets.fontName}` : ""}</option></select>
               <button className="text-button card-upload-font" onClick={() => fontInput.current?.click()} disabled={!ready || busy}><FileUp size={14} />Import exact font</button><input ref={fontInput} type="file" accept=".ttf,.otf,.woff,.woff2" aria-label="Import exact font file" className="sr-only" tabIndex={-1} onChange={(event) => void uploadFont(event.target.files?.[0])} />
@@ -144,7 +153,7 @@ export function SeatingCardStudio() {
             </div>
             <div className="card-artwork-note"><Check size={16} /><div><strong>Your original artwork</strong><p>Flowers, border, and texture preserved from your blank reference.</p></div></div>
           </div>
-          <div className="download-panel card-download-panel"><label className="field-label" htmlFor="card-scope">CARDS TO PRINT</label><select id="card-scope" className="text-input" value={scope} onChange={(event) => { setScope(event.target.value); setPageIndex(0); setGuestIndex(0); }}><option value="all">All tables · {allGuests.length} guests</option>{project.tables.map((table) => <option key={table.id} value={table.id}>Table {table.number || "?"} · {parseNames(table.names).length} guests</option>)}</select>
+          <div className="download-panel card-download-panel">
             <div className="export-formats" role="group" aria-label="Card download format"><button aria-pressed={format === "png"} className={format === "png" ? "selected" : ""} onClick={() => setFormat("png")}>PNG <small>300 DPI</small></button><button aria-pressed={format === "svg"} className={format === "svg" ? "selected" : ""} onClick={() => setFormat("svg")}>SVG <small>Print ready</small></button></div>
             <button className="primary-button download-button" disabled={!canExport} onClick={() => void download()}>{busy ? <LoaderCircle size={16} className="spinning" /> : <ArrowDownToLine size={16} />}<span>{busy ? "Preparing cards…" : `Download ${layout.pages.length > 1 ? "all sheets" : "sheet"}`}</span></button><button className="secondary-button card-print-button" disabled={!canExport} onClick={printCards}><Printer size={15} />Print / Save as PDF</button><p className="export-footnote">{guests.length} cards · {layout.pages.length} A4 sheets{layout.capacity > 0 && ` · ${layout.capacity} cards per sheet`}<br />Multiple sheets download together in a ZIP.</p>
           </div>
@@ -155,9 +164,9 @@ export function SeatingCardStudio() {
           {errors.length > 0 && <div className="fit-notices" role="alert">{errors.map((error) => <p key={error}><TriangleAlert size={15} /><span>{error}</span></p>)}{assets.error && <button className="text-button" onClick={assets.retry}>Try loading again</button>}{actionError && <button className="text-button" onClick={() => setActionError("")}>Dismiss</button>}</div>}
           <div className="preview-toolbar"><div><span className="preview-toolbar-label">{view === "sheets" ? "A4 · PORTRAIT" : view === "front" ? "THE STANDING FACE" : "CUT, THEN FOLD IN HALF"}</span><span className="toolbar-detail">{view === "sheets" ? "210 × 297 mm" : `${settings.width} × ${(view === "front" ? layout.height / 2 : layout.height).toFixed(1)} mm`}</span></div><label className="guides-toggle"><input type="checkbox" checked={settings.guides} onChange={(event) => update({ guides: event.target.checked })} />Cut & fold guides</label></div>
           <div className={`preview-stage card-preview-stage ${view === "sheets" ? "card-sheet-stage" : ""}`}>
-            {loading ? <div className="preview-loading"><Bow /><LoaderCircle className="spinning" size={22} /><p>Making something lovely…</p></div> : current ? view === "sheets" ? <div className="card-sheet-preview" role="img" aria-label={`A4 seating card sheet ${effectivePage + 1}`} dangerouslySetInnerHTML={{ __html: cardSheetSvg(layout.pages[effectivePage], settings.width, assets.artwork, settings.guides) }} /> : <div className={`card-preview-wrap ${view === "front" ? "card-front-preview" : ""}`}><svg role="img" aria-label={`${view === "front" ? "Front face" : "Fold-over seating card"} for ${current.guest.name}`} className="card-artwork" viewBox={`0 ${view === "front" ? layout.height / 2 : 0} ${settings.width} ${view === "front" ? layout.height / 2 : layout.height}`} dangerouslySetInnerHTML={{ __html: cardMarkup(current, settings.width, assets.artwork, view === "fold" && settings.guides) }} />{view === "fold" && <span className="card-fold-label">FOLD HERE</span>}</div> : <div className="preview-empty"><Heart size={28} /><h3>A place with their name on it.</h3><p>Add guests to this table to preview their seating cards.</p></div>}
+            {loading ? <div className="preview-loading"><Bow /><LoaderCircle className="spinning" size={22} /><p>Making something lovely…</p></div> : current ? view === "sheets" ? <div className="card-sheet-preview" role="img" aria-label={`A4 seating card sheet ${effectivePage + 1}`} dangerouslySetInnerHTML={{ __html: cardSheetSvg(layout.pages[effectivePage], settings.width, assets.artwork, settings.guides) }} /> : <div className={`card-preview-wrap ${view === "front" ? "card-front-preview" : ""}`}><svg role="img" aria-label={`${view === "front" ? "Front face" : "Fold-over seating card"} for ${current.guest.name}`} className="card-artwork" viewBox={`0 ${view === "front" ? layout.height / 2 : 0} ${settings.width} ${view === "front" ? layout.height / 2 : layout.height}`} dangerouslySetInnerHTML={{ __html: cardMarkup(current, settings.width, assets.artwork, view === "fold" && settings.guides) }} />{view === "fold" && <span className="card-fold-label">FOLD HERE</span>}</div> : <div className="preview-empty"><Heart size={28} /><h3>A place with their name on it.</h3><p>Add guests to preview their seating cards.</p></div>}
           </div>
-          <div className="preview-footer">{view === "sheets" ? <><button className="text-button" disabled={!canExport} onClick={() => void download(true)}><ArrowDownToLine size={13} />This sheet</button><div className="page-navigation"><button className="icon-button" aria-label="Previous card sheet" disabled={effectivePage === 0} onClick={() => setPageIndex(effectivePage - 1)}><ChevronLeft size={14} /></button><strong>Sheet {layout.pages.length ? effectivePage + 1 : 0} of {layout.pages.length}</strong><button className="icon-button" aria-label="Next card sheet" disabled={effectivePage >= layout.pages.length - 1} onClick={() => setPageIndex(effectivePage + 1)}><ChevronRight size={14} /></button></div></> : <><span className="card-guest-caption">{current?.guest.name ?? "No guests yet"}{current && ` · Table ${current.guest.table || "?"}`}</span><div className="page-navigation"><button className="icon-button" aria-label="Previous guest card" disabled={effectiveGuest === 0} onClick={() => setGuestIndex(effectiveGuest - 1)}><ChevronLeft size={14} /></button><strong>{cards.length ? effectiveGuest + 1 : 0} / {cards.length}</strong><button className="icon-button" aria-label="Next guest card" disabled={effectiveGuest >= cards.length - 1} onClick={() => setGuestIndex(effectiveGuest + 1)}><ChevronRight size={14} /></button></div></>}</div>
+          <div className="preview-footer">{view === "sheets" ? <><button className="text-button" disabled={!canExport} onClick={() => void download(true)}><ArrowDownToLine size={13} />This sheet</button><div className="page-navigation"><button className="icon-button" aria-label="Previous card sheet" disabled={effectivePage === 0} onClick={() => setPageIndex(effectivePage - 1)}><ChevronLeft size={14} /></button><strong>Sheet {layout.pages.length ? effectivePage + 1 : 0} of {layout.pages.length}</strong><button className="icon-button" aria-label="Next card sheet" disabled={effectivePage >= layout.pages.length - 1} onClick={() => setPageIndex(effectivePage + 1)}><ChevronRight size={14} /></button></div></> : <><span className="card-guest-caption">{current?.guest.name ?? "No guests yet"}</span><div className="page-navigation"><button className="icon-button" aria-label="Previous guest card" disabled={effectiveGuest === 0} onClick={() => setGuestIndex(effectiveGuest - 1)}><ChevronLeft size={14} /></button><strong>{cards.length ? effectiveGuest + 1 : 0} / {cards.length}</strong><button className="icon-button" aria-label="Next guest card" disabled={effectiveGuest >= cards.length - 1} onClick={() => setGuestIndex(effectiveGuest + 1)}><ChevronRight size={14} /></button></div></>}</div>
           {layout.resized > 0 && <p className="card-fit-note">{layout.resized} {layout.resized === 1 ? "name was" : "names were"} reduced to fit the reference’s name area.</p>}
           <div className="print-reminder"><span className="reminder-icon"><Scissors size={15} /></span><p><strong>Print at 100% / actual size on cardstock.</strong> Cut around each complete card, score through the centre, and fold to stand. The upper panel stays blank. For PDF, turn off browser headers and footers and use A4.</p></div>
         </section>

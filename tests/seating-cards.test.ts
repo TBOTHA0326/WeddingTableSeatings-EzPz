@@ -6,10 +6,11 @@ import { A4 } from "../src/lib/layout";
 import { CARD_ASPECT, CARD_MARGIN, DEFAULT_CARD_SETTINGS, cardGuests, cardMarkup, cardSheetSvg, createCardLayout, restoreCardSettings } from "../src/lib/seating-cards";
 
 const font = parseFont(new Uint8Array(readFileSync("public/fonts/heirloom.otf")));
-const guests = cardGuests([{ id: "table-1", number: "1", names: "Tiaan | Botha\nAmelia | van der Merwe\nTiaan | Botha" }]);
+const guests = cardGuests("Tiaan | Botha\nAmelia | van der Merwe\nTiaan Botha");
 
-test("Shared guests preserve compound surnames and duplicate names as separate cards", () => {
+test("Guest list preserves compound surnames and duplicate names as separate cards", () => {
   assert.equal(guests[1].name, "Amelia van der Merwe");
+  assert.equal(guests[2].name, guests[0].name);
   assert.equal(guests.length, 3);
   assert.equal(new Set(guests.map((guest) => guest.id)).size, 3);
 });

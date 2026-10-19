@@ -1,23 +1,23 @@
 import type { Font } from "fontkit";
 import { A4, escapeXml, measureLabel, type Label } from "./layout";
-import { DEFAULT_SETTINGS, MAX_GUESTS, parseNames, type FontId, type Table } from "./project";
+import { DEFAULT_SETTINGS, MAX_GUESTS, parseNames, type FontId } from "./project";
 
 // Preserve the supplied 787 × 1150 artwork, including its centre fold strip.
 export const CARD_ASPECT = 1150 / 787;
 export const CARD_MARGIN = 10;
 export const CARD_GAP = 4;
 export const CARD_STORAGE_KEY = "ever-after-cards-v1";
+export const CARD_GUESTS_KEY = "ever-after-card-guests-v1";
 export const SIX_CARD_WIDTH = Math.floor((A4.height - 2 * CARD_MARGIN - 2 * CARD_GAP) / (3 * CARD_ASPECT));
 export type CardSettings = { width: number; fontSize: number; fontId: FontId | "custom"; guides: boolean; sheetLayout: "six" | "custom" };
 export const DEFAULT_CARD_SETTINGS: CardSettings = { width: SIX_CARD_WIDTH, fontSize: 32, fontId: "heirloom", guides: true, sheetLayout: "six" };
-export type CardGuest = { id: string; name: string; table: string };
+export type CardGuest = { id: string; name: string };
 export type SeatingCard = { guest: CardGuest; label: Label; scale: number; x: number; y: number };
 export type CardLayout = { pages: SeatingCard[][]; errors: string[]; capacity: number; height: number; resized: number };
 
-export function cardGuests(tables: Table[]): CardGuest[] {
-  return tables.flatMap((table) => parseNames(table.names).map((name, index) => ({
-    id: `${table.id}:${index}`, name: name.split("|").map((part) => part.trim()).filter(Boolean).join(" "), table: table.number,
-  })));
+// Seating cards use one flat guest list, independent of the seating window's tables.
+export function cardGuests(raw: string): CardGuest[] {
+  return parseNames(raw).map((name, index) => ({ id: String(index), name: name.split("|").map((part) => part.trim()).filter(Boolean).join(" ") }));
 }
 
 export function restoreCardSettings(raw: string | null): CardSettings {
