@@ -56,6 +56,9 @@ test("A table page PNG is the artwork's exact 18.5 × 26 cm at 300 DPI", async (
 test("Settings persist, crowded tables warn and offer a fit, and real problems block downloads", async ({ page }) => {
   await page.goto("/table-pages");
   await expect(page.getByTestId("page-status")).toContainText("Ready to print");
+  await expect(page.getByLabel("Guest names", { exact: true }).locator("option")).toHaveCount(80);
+  expect(await page.getByLabel("Guest names", { exact: true }).locator("optgroup").evaluateAll((groups) => groups.map((group) => group.getAttribute("label")))).toEqual(["Elegant script", "Handwritten", "Classic serif", "Display", "Clean sans serif"]);
+  await page.getByLabel("Table heading").selectOption("cinzel");
   await page.getByLabel("Guest names", { exact: true }).selectOption("allura");
   await page.getByLabel("GUEST NAMES", { exact: true }).fill(Array.from({ length: 24 }, (_, index) => `Guest Number ${index + 1}`).join("\n"));
   await expect(page.locator(".fit-notices")).toContainText("some lettering comes within 3 mm of the artwork");

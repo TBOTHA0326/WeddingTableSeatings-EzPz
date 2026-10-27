@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { ArrowDownToLine, Check, ChevronDown, Grid2X2, Plus, SlidersHorizontal, Type, Users } from "lucide-react";
-import { FONTS, type Settings, type Table } from "@/lib/project";
+import type { Settings, Table } from "@/lib/project";
 import type { ExportFormat } from "@/lib/export";
+import { FontSelect } from "./font-select";
 import { TableEditor } from "./table-editor";
 
 type Props = {
@@ -28,14 +29,14 @@ export function StudioControls(props: Props) {
       {tab === "lettering" && <>
         <p className="eyebrow">02 / MAKE IT FEEL LIKE YOU</p><h2>A lovely first impression.</h2>
         <p className="section-description">Pick the lettering for your special day.</p>
-        <div className="font-options" role="group" aria-label="Choose a font">{FONTS.map((font) => <button key={font.id} className={`font-option ${settings.fontId === font.id ? "selected" : ""}`} aria-pressed={settings.fontId === font.id} onClick={() => updateSettings({ fontId: font.id })}><div><span className="font-sample" style={{ fontFamily: `'${font.family}'` }}>{font.name}</span><span className="font-note">{font.note}{font.source && <em>{font.source}</em>}</span></div><span className="radio-mark">{settings.fontId === font.id && <Check size={12} />}</span></button>)}</div>
+        <label className="field-label" htmlFor="name-font">NAME FONT</label><div className="select-wrap"><FontSelect id="name-font" value={settings.fontId} onChange={(fontId) => updateSettings({ fontId: fontId as Settings["fontId"] })} /><ChevronDown size={15} /></div>
         <RangeControl label="Guest name size" id="font-size" value={settings.fontSize} min={12} max={60} suffix="pt" onChange={(fontSize) => updateSettings({ fontSize })} />
         <p className="field-hint">One shared size for all names. Larger is lovelier; smaller saves sheets.</p>
         <span className="field-label colour-label">LETTERING COLOUR</span>
         <div className="color-options">{COLORS.map((color) => <button key={color.value} style={{ backgroundColor: color.value }} className={`color-swatch ${settings.color.toLowerCase() === color.value ? "selected" : ""}`} aria-label={`${color.name} lettering`} aria-pressed={settings.color.toLowerCase() === color.value} onClick={() => updateSettings({ color: color.value })}>{settings.color.toLowerCase() === color.value && <Check size={14} color={color.value === "#ffffff" || color.value === "#c6aa7b" ? "#24211e" : "#fff"} />}</button>)}<label className="custom-color" title="Choose any colour"><Plus size={15} /><input type="color" value={settings.color} aria-label="Custom lettering colour" onChange={(event) => updateSettings({ color: event.target.value })} /></label><span className="hex-color">{settings.color.toUpperCase()}</span></div>
         <span className="field-label">NAME STYLE</span><div className="segmented-control"><button className={settings.nameStyle === "single" ? "selected" : ""} onClick={() => updateSettings({ nameStyle: "single" })}>One line</button><button className={settings.nameStyle === "stacked" ? "selected" : ""} onClick={() => updateSettings({ nameStyle: "stacked" })}>Two lines</button></div>
         <div className="packing-heading"><Type size={15} /><span>THE TABLE HEADING</span></div>
-        <label className="field-label" htmlFor="heading-font">HEADING FONT</label><div className="select-wrap"><select id="heading-font" value={settings.headingFontId} onChange={(event) => updateSettings({ headingFontId: event.target.value as Settings["headingFontId"] })}>{FONTS.map((font) => <option key={font.id} value={font.id}>{font.name}</option>)}</select><ChevronDown size={15} /></div>
+        <label className="field-label" htmlFor="heading-font">HEADING FONT</label><div className="select-wrap"><FontSelect id="heading-font" value={settings.headingFontId} onChange={(headingFontId) => updateSettings({ headingFontId: headingFontId as Settings["headingFontId"] })} /><ChevronDown size={15} /></div>
         <RangeControl label="Table heading size" id="heading-size" value={settings.headingSize} min={16} max={100} suffix="pt" onChange={(headingSize) => updateSettings({ headingSize })} />
       </>}
       {tab === "glass" && <>

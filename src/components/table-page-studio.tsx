@@ -7,10 +7,11 @@ import type { Font } from "fontkit";
 import { ArrowDownToLine, Check, ChevronLeft, ChevronRight, Heart, LoaderCircle, Plus, Printer, Sparkles, TriangleAlert } from "lucide-react";
 import { useProject } from "@/hooks/use-project";
 import { loadFont } from "@/hooks/use-lettering";
-import { FONTS, WEDDING_TABLES, parseNames } from "@/lib/project";
+import { WEDDING_TABLES, parseNames } from "@/lib/project";
 import { downloadBlob, svgToPng, type ExportFormat } from "@/lib/export";
 import { DEFAULT_TABLE_PAGE_SETTINGS, PAGE, PAGE_PIXELS, TABLE_PAGE_STORAGE_KEY, createTablePages, restoreTablePageSettings, tablePageSvg, type TablePage, type TablePageLayout, type TablePageSettings } from "@/lib/table-pages";
 import { Bow } from "./bow";
+import { FontSelect } from "./font-select";
 import { COLORS } from "./studio-controls";
 import { StudioNav } from "./studio-nav";
 import { TableEditor } from "./table-editor";
@@ -138,9 +139,9 @@ export function TablePageStudio() {
           <div className="card-controls-body">
             <TableEditor tables={project.tables} activeId={activeId} setActiveId={setActiveId} setTables={project.setTables} guests={guests} ready={project.ready} description="Each table prints on its own page. Your tables are shared with the seating window." hint="One guest per line, first name and surname. The table number becomes the page heading." />
             <div className="card-control-section"><p className="eyebrow">02 / THE LETTERING</p>
-              <label className="card-field" htmlFor="page-heading-font">Table heading</label><select id="page-heading-font" className="text-input" value={settings.headingFontId} disabled={!ready} onChange={(event) => update({ headingFontId: event.target.value as TablePageSettings["headingFontId"] })}>{FONTS.map((font) => <option key={font.id} value={font.id}>{font.name}</option>)}</select>
+              <label className="card-field" htmlFor="page-heading-font">Table heading</label><FontSelect id="page-heading-font" className="text-input" value={settings.headingFontId} disabled={!ready} onChange={(headingFontId) => update({ headingFontId: headingFontId as TablePageSettings["headingFontId"] })} />
               <label className="card-field" htmlFor="page-heading-size">Heading size <span>{settings.headingSize} pt</span></label><input id="page-heading-size" type="range" min="24" max="120" step="0.5" value={settings.headingSize} disabled={!ready} onChange={(event) => update({ headingSize: Number(event.target.value) })} />
-              <label className="card-field" htmlFor="page-name-font">Guest names</label><select id="page-name-font" className="text-input" value={settings.nameFontId} disabled={!ready} onChange={(event) => update({ nameFontId: event.target.value as TablePageSettings["nameFontId"] })}>{FONTS.map((font) => <option key={font.id} value={font.id}>{font.name}</option>)}</select>
+              <label className="card-field" htmlFor="page-name-font">Guest names</label><FontSelect id="page-name-font" className="text-input" value={settings.nameFontId} disabled={!ready} onChange={(nameFontId) => update({ nameFontId: nameFontId as TablePageSettings["nameFontId"] })} />
               <label className="card-field" htmlFor="page-name-size">Name size <span>{settings.nameSize} pt</span></label><input id="page-name-size" type="range" min="12" max="72" step="0.5" value={settings.nameSize} disabled={!ready} onChange={(event) => update({ nameSize: Number(event.target.value) })} />
               <label className="card-field" htmlFor="page-line-spacing">Line spacing <span>{settings.lineSpacing.toFixed(1)}×</span></label><input id="page-line-spacing" type="range" min="1" max="2.5" step="0.1" value={settings.lineSpacing} disabled={!ready} onChange={(event) => update({ lineSpacing: Number(event.target.value) })} />
               <label className="card-field" htmlFor="page-heading-gap">Space below heading <span>{settings.headingGap} mm</span></label><input id="page-heading-gap" type="range" min="0" max="40" value={settings.headingGap} disabled={!ready} onChange={(event) => update({ headingGap: Number(event.target.value) })} />

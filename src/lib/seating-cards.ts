@@ -1,6 +1,6 @@
 import type { Font } from "fontkit";
 import { A4, escapeXml, measureLabel, type Label } from "./layout";
-import { DEFAULT_SETTINGS, MAX_GUESTS, parseNames, type FontId } from "./project";
+import { DEFAULT_SETTINGS, FONTS, MAX_GUESTS, parseNames, type FontId } from "./project";
 
 // Preserve the supplied 787 × 1150 artwork, including its centre fold strip.
 export const CARD_ASPECT = 1150 / 787;
@@ -28,7 +28,7 @@ export function restoreCardSettings(raw: string | null): CardSettings {
       // Older saved settings adopt the requested six-card default; explicit overrides persist.
       width: value.sheetLayout === "custom" && typeof value.width === "number" && Number.isFinite(value.width) ? Math.min(180, Math.max(60, value.width)) : SIX_CARD_WIDTH,
       fontSize: typeof value.fontSize === "number" && Number.isFinite(value.fontSize) ? Math.min(60, Math.max(12, value.fontSize)) : 32,
-      fontId: ["heirloom", "angelface", "great-vibes", "allura", "cormorant", "custom"].includes(value.fontId) ? value.fontId : "heirloom",
+      fontId: value.fontId === "custom" || FONTS.some((font) => font.id === value.fontId) ? value.fontId : "heirloom",
       guides: value.guides !== false,
       sheetLayout: value.sheetLayout === "custom" ? "custom" : "six",
     };

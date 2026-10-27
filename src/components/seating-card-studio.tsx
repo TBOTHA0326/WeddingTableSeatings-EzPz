@@ -6,10 +6,11 @@ import Image from "next/image";
 import JSZip from "jszip";
 import { ArrowDownToLine, Check, ChevronLeft, ChevronRight, FileUp, Heart, LoaderCircle, Printer, Scissors, TriangleAlert } from "lucide-react";
 import { useCardAssets } from "@/hooks/use-card-assets";
-import { EXAMPLE_TABLES, FONTS, WEDDING_GUESTS } from "@/lib/project";
+import { EXAMPLE_TABLES, WEDDING_GUESTS } from "@/lib/project";
 import { downloadBlob, svgToPng, type ExportFormat } from "@/lib/export";
 import { CARD_ASPECT, CARD_GUESTS_KEY, CARD_STORAGE_KEY, DEFAULT_CARD_SETTINGS, SIX_CARD_WIDTH, cardGuests, cardMarkup, cardSheetSvg, createCardLayout, restoreCardSettings, type CardSettings } from "@/lib/seating-cards";
 import { Bow } from "./bow";
+import { FontSelect } from "./font-select";
 import { StudioNav } from "./studio-nav";
 
 function useCardSettings() {
@@ -144,7 +145,7 @@ export function SeatingCardStudio() {
             <div className="section-heading"><p className="eyebrow">01 / YOUR FAVOURITE PEOPLE</p><span className="count-badge">{guests.length} guests</span></div><h2>One for every guest.</h2><p className="section-description">Paste your whole guest list. No tables needed.</p>
             <div className="table-editor-header guest-label"><label className="field-label" htmlFor="card-names">GUEST NAMES</label><button className="text-button" disabled={!guestList.ready} onClick={() => namesInput.current?.click()}><FileUp size={13} />Import .txt</button></div><textarea id="card-names" className="names-input" value={guestList.names} disabled={!guestList.ready} spellCheck={false} aria-describedby="card-names-hint" onChange={(event) => changeNames(event.target.value)} placeholder={"Tiaan Botha\nAmelia van der Merwe"} /><p className="field-hint" id="card-names-hint">One guest per line, first name and surname. Each name gets its own card.</p>
             <input type="file" ref={namesInput} accept=".txt,text/plain" className="sr-only" tabIndex={-1} aria-label="Import guest names file" onChange={(event) => void importNames(event.target.files?.[0])} />
-            <div className="card-control-section"><p className="eyebrow">02 / THE FINISHING TOUCHES</p><label className="card-field" htmlFor="card-font">Name lettering</label><select id="card-font" className="text-input" value={settings.fontId} disabled={!ready || busy} onChange={(event) => { setActionError(""); update({ fontId: event.target.value as CardSettings["fontId"] }); }}>{FONTS.map((font) => <option key={font.id} value={font.id}>{font.name}</option>)}<option value="custom">Imported font{settings.fontId === "custom" && assets.fontName ? ` · ${assets.fontName}` : ""}</option></select>
+            <div className="card-control-section"><p className="eyebrow">02 / THE FINISHING TOUCHES</p><label className="card-field" htmlFor="card-font">Name lettering</label><FontSelect id="card-font" className="text-input" value={settings.fontId} disabled={!ready || busy} onChange={(fontId) => { setActionError(""); update({ fontId: fontId as CardSettings["fontId"] }); }}><optgroup label="Imported"><option value="custom">Imported font{settings.fontId === "custom" && assets.fontName ? ` · ${assets.fontName}` : ""}</option></optgroup></FontSelect>
               <button className="text-button card-upload-font" onClick={() => fontInput.current?.click()} disabled={!ready || busy}><FileUp size={14} />Import exact font</button><input ref={fontInput} type="file" accept=".ttf,.otf,.woff,.woff2" aria-label="Import exact font file" className="sr-only" tabIndex={-1} onChange={(event) => void uploadFont(event.target.files?.[0])} />
               <p className="field-hint">Use your font file for an exact match. Imported fonts stay on this device. Vintage Heirloom is the starting style.</p>
               <label className="card-field" htmlFor="card-font-size">Name size <span>{settings.fontSize} pt</span></label><input id="card-font-size" type="range" min="12" max="60" value={settings.fontSize} disabled={!ready} onChange={(event) => update({ fontSize: Number(event.target.value) })} /><p className="field-hint">Long names shrink just enough to keep every flourish inside the lower-right name area.</p>

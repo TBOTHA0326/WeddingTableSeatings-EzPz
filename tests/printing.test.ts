@@ -15,8 +15,14 @@ for (const { id, name } of FONTS) {
   for (const arrangement of ["compact", "grid"] as const) {
     test(`${name}: ${arrangement} exports every name within A4 without overlaps`, () => {
       const names = Array.from({ length: 140 }, (_, index) => `${parseNames(EXAMPLE_NAMES)[index % 24]} ${index + 1}`);
-      const settings = { ...DEFAULT_SETTINGS, fontId: id, arrangement };
-      const layout = createLayout(fonts.get(id)!, names, settings);
+      let settings = { ...DEFAULT_SETTINGS, fontId: id, arrangement };
+      let layout = createLayout(fonts.get(id)!, names, settings);
+      // Wide fonts report the size that fits A4; apply it, as the studio does.
+      if (layout.errors.length) {
+        assert.match(layout.errors.join(" "), /too large for A4/);
+        settings = { ...settings, fontSize: layout.suggestedSize };
+        layout = createLayout(fonts.get(id)!, names, settings);
+      }
       assert.deepEqual(layout.errors, []);
       assert.ok(layout.pages.length > 1);
       assert.deepEqual(layout.pages.flatMap((page) => page.labels.map((label) => label.id)).sort((a, b) => a - b), names.map((_, index) => index));

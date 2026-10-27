@@ -25,14 +25,14 @@ test("Table, glass-capacity and physical fit controls respond and persist", asyn
   await expect(page.getByLabel("Number of glass panes")).toHaveValue("3");
 });
 
-test("All five supplied fonts shape names, and SVG contains only transparent outlines", async ({ page }) => {
+test("Script, serif and supplied fonts shape names, and SVG contains only transparent outlines", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(page.getByTestId("fit-status")).toContainText("Everything fits beautifully");
   await page.getByRole("tab", { name: "Lettering" }).click();
-  for (const name of ["Vintage Heirloom", "Great Vibes", "Allura", "Cormorant", "Angelface"]) {
-    await page.getByRole("button", { name: new RegExp(name), exact: false }).click();
+  for (const fontId of ["heirloom", "great-vibes", "allura", "cormorant", "angelface", "pinyon-script", "playfair-display-italic"]) {
+    await page.getByLabel("NAME FONT").selectOption(fontId);
     await expect(page.getByTestId("fit-status")).toContainText("Everything fits beautifully");
     await expect(page.locator(".pane-detail path").first()).toBeVisible();
   }
