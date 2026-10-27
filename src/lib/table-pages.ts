@@ -10,16 +10,17 @@ export type TablePageSettings = { headingFontId: FontId; nameFontId: FontId; hea
 export const DEFAULT_TABLE_PAGE_SETTINGS: TablePageSettings = { headingFontId: "heirloom", nameFontId: "heirloom", headingSize: 72, nameSize: 20, lineSpacing: 1.4, headingGap: 14, columns: 1, color: "#24211e" };
 export type PlacedLine = { label: Label; x: number; y: number; scale: number };
 export type TablePage = { tableId: string; heading: string; lines: PlacedLine[]; guests: number; columns: 1 | 2 };
-// When the chosen sizes do not fit, `fit` holds the largest sizes that fit every table, and the
-// pages are still laid out (overlapping the artwork) so the preview shows the problem.
-export type TablePageLayout = { pages: TablePage[]; errors: string[]; fit?: { nameSize: number; headingSize: number } };
+// Errors block printing. Warnings only flag lettering that comes close to the artwork; `fit` then
+// holds the largest sizes that keep every table fully clear.
+export type TablePageLayout = { pages: TablePage[]; errors: string[]; warnings: string[]; fit?: { nameSize: number; headingSize: number } };
 
-// Clear lettering bounds (mm) for each 1 mm row of the artwork, kept 6 mm away from the
+// Clear lettering bounds (mm) for each 1 mm row of the artwork, kept 3 mm away from the
 // ink wash (top left), the botanicals (bottom right) and inside the gold frame.
 // Rows where left equals right are not available.
-const CLEAR_LEFT = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,98,98,98,98,98,98,98,98,89,89,89,88,88,88,87,87,83,75,75,71,71,69,69,69,69,69,69,56,56,56,56,56,54,54,54,54,54,54,54,54,54,54,51,51,51,51,48,47,47,43,42,42,41,40,35,34,31,31,31,31,28,26,26,26,26,23,22,22,22,22,19,19,19,19,18,18,18,18,18,18,18,18,17,17,16,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-const CLEAR_RIGHT = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,98,98,98,98,98,98,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,159,159,159,159,159,159,159,159,159,159,159,159,159,159,159,159,159,159,159,159,159,159,159,159,154,154,154,154,154,154,154,154,154,154,154,154,154,154,154,154,141,141,141,141,141,141,141,141,141,141,141,141,141,141,142,142,143,143,143,143,143,143,143,128,128,128,128,128,128,128,128,128,128,128,128,128,128,129,130,131,132,132,133,133,133,134,134,128,127,126,126,126,126,126,126,117,117,117,116,116,116,116,116,116,116,116,116,116,116,116,116,116,117,121,116,116,116,116,116,116,116,116,116,116,116,116,116,116,117,116,116,115,112,112,112,111,110,110,109,108,108,107,105,105,104,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+const CLEAR_LEFT = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,95,95,95,95,95,86,86,86,85,85,85,84,84,80,72,72,68,68,66,66,66,66,66,66,53,53,53,53,53,50,50,51,51,51,51,51,51,51,51,48,48,48,48,45,44,44,40,39,39,38,37,32,31,28,28,28,28,25,23,23,23,23,20,19,19,19,19,16,16,16,16,15,15,15,15,15,15,15,15,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+const CLEAR_RIGHT = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,95,95,95,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,162,162,162,162,162,162,162,162,162,162,162,162,162,162,162,162,162,162,162,162,162,163,163,163,157,157,157,157,157,157,157,157,157,157,158,158,159,159,160,160,144,144,144,144,144,144,144,144,145,145,146,146,146,146,146,146,146,146,147,147,147,147,147,131,131,131,131,131,131,131,131,132,133,134,135,135,136,136,136,137,137,138,138,139,139,140,140,131,130,129,129,129,129,129,129,120,120,120,119,119,119,119,119,119,119,119,120,124,124,124,124,124,124,124,119,119,119,119,119,119,119,119,125,124,123,122,121,121,120,119,119,118,115,115,115,114,113,113,112,111,111,110,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
+const CLEAR_MARGIN = 3;
 // Every page shares one centre line and one heading height, so the panes match.
 const AXIS = PAGE.width / 2;
 const PREFERRED_CENTRE_Y = 128;
@@ -54,15 +55,18 @@ function arrange({ heading, names }: Measured, nameFont: Font, settings: TablePa
   return { items, height: Math.max(...items.map((item) => item.y1)), columns };
 }
 
-function fits(block: Block, top: number): boolean {
+// Room (mm) between the lettering and the clear area's edge; negative when it reaches into the margin.
+function clearance(block: Block, top: number): number {
+  let room = Infinity;
   for (const item of block.items) {
     const left = AXIS + item.x0;
     const right = AXIS + item.x1;
     for (let row = Math.floor(top + item.y0); row <= Math.ceil(top + item.y1); row++) {
-      if (row < 0 || row >= PAGE.height || left < CLEAR_LEFT[row] || right > CLEAR_RIGHT[row]) return false;
+      if (row < 0 || row >= PAGE.height || CLEAR_LEFT[row] === CLEAR_RIGHT[row]) return -Infinity;
+      room = Math.min(room, left - CLEAR_LEFT[row], CLEAR_RIGHT[row] - right);
     }
   }
-  return true;
+  return room;
 }
 
 // Every table uses the same column count, and all share the heading height closest to the open middle.
@@ -72,12 +76,20 @@ function arrangeAll(measured: Measured[], nameFont: Font, settings: TablePageSet
   return { blocks, centred: PREFERRED_CENTRE_Y - tallest / 2 };
 }
 
-function placeAll(measured: Measured[], nameFont: Font, settings: TablePageSettings, nameScale: number, headingScale: number, columns: 1 | 2): { top: number; blocks: Block[] } | null {
+// The heading height nearest the middle where everything is clear, or failing that, the one with the most room.
+function placeAll(measured: Measured[], nameFont: Font, settings: TablePageSettings, nameScale: number, headingScale: number, columns: 1 | 2): { top: number; blocks: Block[]; room: number[] } {
   const { blocks, centred } = arrangeAll(measured, nameFont, settings, nameScale, headingScale, columns);
   const tops = Array.from({ length: PAGE.height }, (_, top) => top).sort((a, b) => Math.abs(a - centred) - Math.abs(b - centred));
-  const top = tops.find((candidate) => blocks.every((block) => fits(block, candidate)));
-  return top === undefined ? null : { top, blocks };
+  let best: { top: number; blocks: Block[]; room: number[] } | null = null;
+  for (const top of tops) {
+    const room = blocks.map((block) => clearance(block, top));
+    if (Math.min(...room) >= 0) return { top, blocks, room };
+    if (!best || Math.min(...room) > Math.min(...best.room)) best = { top, blocks, room };
+  }
+  return best!;
 }
+
+const clear = (placement: { room: number[] }) => Math.min(...placement.room) >= 0;
 
 function largestScale(test: (scale: number) => boolean): number {
   let low = 0; let high = 1;
@@ -90,7 +102,7 @@ function largestScale(test: (scale: number) => boolean): number {
 
 export function createTablePages(nameFont: Font, headingFont: Font, tables: Table[], settings: TablePageSettings): TablePageLayout {
   const errors: string[] = [];
-  const result: TablePageLayout = { pages: [], errors };
+  const result: TablePageLayout = { pages: [], errors, warnings: [] };
   const populated = tables.map((table) => ({ table, names: parseNames(table.names) })).filter(({ names }) => names.length);
   if (populated.reduce((count, { names }) => count + names.length, 0) > MAX_GUESTS) { errors.push(`Please keep the project to ${MAX_GUESTS} guests or fewer.`); return result; }
   if (populated.some(({ table }) => !table.number.trim())) errors.push("Give every table with guests a number or name.");
@@ -110,17 +122,15 @@ export function createTablePages(nameFont: Font, headingFont: Font, tables: Tabl
     names: names.map((name, index) => measureLabel(nameFont, name, index + 1, { ...base, fontSize: settings.nameSize })),
   }));
   const place = (nameScale: number, headingScale: number, tables = measured) => placeAll(tables, nameFont, settings, nameScale, headingScale, settings.columns);
-  let placed = place(1, 1);
-  if (!placed) {
-    const crowded = measured.filter((table) => !place(1, 1, [table])).map(({ table }) => tableHeading(table.number));
-    errors.push(crowded.length ? `${crowded.join(", ")} ${crowded.length === 1 ? "doesn’t" : "don’t"} fit at these sizes. Make the lettering smaller${settings.columns === 1 ? ", tighten the spacing, or try two columns." : " or tighten the spacing."}` : "The tables can’t share one heading position at these sizes. Make the lettering a little smaller.");
+  const placed = place(1, 1);
+  if (!clear(placed)) {
+    const close = measured.filter((_, index) => placed.room[index] < 0).map(({ table }) => tableHeading(table.number));
+    result.warnings.push(`On ${close.join(", ")}, some lettering comes within ${CLEAR_MARGIN} mm of the artwork. If the preview looks right to you, it’s fine to print.`);
     // Prefer shrinking only the names; shrink the heading too only when it is the problem.
-    const names = largestScale((scale) => !!place(scale, 1));
-    const both = names * settings.nameSize >= 12 ? 1 : largestScale((scale) => !!place(scale, scale));
+    const names = largestScale((scale) => clear(place(scale, 1)));
+    const both = names * settings.nameSize >= 12 ? 1 : largestScale((scale) => clear(place(scale, scale)));
     const fit = { nameSize: Math.floor(settings.nameSize * (both < 1 ? both : names) * 2) / 2, headingSize: Math.floor(settings.headingSize * both * 2) / 2 };
     if (fit.nameSize >= 12 && fit.headingSize >= 24) result.fit = fit;
-    const { blocks, centred } = arrangeAll(measured, nameFont, settings, 1, 1, settings.columns);
-    placed = { blocks, top: Math.max(0, centred) };
   }
   result.pages = measured.map(({ table }, index) => {
     const block = placed.blocks[index];

@@ -44,7 +44,7 @@ test("Lettering stays inside the frame and clear of the artwork at every table s
     const first = createTablePages(font, font, [table("1", guests(count))], settings);
     if (first.fit) settings = { ...settings, ...first.fit };
     const layout = createTablePages(font, font, [table("1", guests(count))], settings);
-    assert.deepEqual(layout.errors, []);
+    assert.deepEqual([...layout.errors, ...layout.warnings], []);
     for (const line of layout.pages[0].lines) {
       const box = { x: line.x, y: line.y, width: line.label.inkWidth * line.scale, height: line.label.inkHeight * line.scale };
       assert.ok(box.x >= 12 && box.y >= 14 && box.x + box.width <= PAGE.width - 12 && box.y + box.height <= PAGE.height - 14, `${count} guests: ${line.label.name} leaves the frame`);
@@ -53,31 +53,31 @@ test("Lettering stays inside the frame and clear of the artwork at every table s
   }
 });
 
-test("Tables that don't fit get a fit suggestion that shrinks the names first", () => {
+test("Crowded tables print with a warning and a fit suggestion that shrinks the names first", () => {
   const tables = [table("1", guests(14)), table("2", guests(4))];
   const crowded = createTablePages(font, font, tables, { ...DEFAULT_TABLE_PAGE_SETTINGS, nameSize: 30 });
-  assert.match(crowded.errors[0], /^Table 1 doesn’t fit/);
-  assert.equal(crowded.pages.length, 2, "crowded pages still preview");
+  assert.deepEqual(crowded.errors, []);
+  assert.match(crowded.warnings[0], /^On Table 1\b.*some lettering comes within 3 mm of the artwork/);
+  assert.equal(crowded.pages.length, 2, "crowded pages are still laid out");
   assert.equal(crowded.fit?.headingSize, DEFAULT_TABLE_PAGE_SETTINGS.headingSize);
   assert.ok(crowded.fit!.nameSize < 30);
   const fitted = createTablePages(font, font, tables, { ...DEFAULT_TABLE_PAGE_SETTINGS, ...crowded.fit });
-  assert.deepEqual(fitted.errors, []);
+  assert.deepEqual([...fitted.errors, ...fitted.warnings], []);
   assert.deepEqual(fitted.pages.map((page) => page.columns), [1, 1]);
   const twoColumns = { ...DEFAULT_TABLE_PAGE_SETTINGS, nameSize: 30, columns: 2 as const };
   const columns = createTablePages(font, font, tables, { ...twoColumns, ...createTablePages(font, font, tables, twoColumns).fit });
   assert.deepEqual(columns.pages.map((page) => page.columns), [2, 2]);
 });
 
-test("Missing numbers, duplicates, missing glyphs and impossible tables block pages", () => {
+test("Missing numbers, duplicates and missing glyphs block pages; impossible tables warn", () => {
   const check = (tables: ReturnType<typeof table>[], pattern: RegExp) => {
     const layout = createTablePages(font, font, tables, DEFAULT_TABLE_PAGE_SETTINGS);
-    assert.ok(layout.errors.length);
-    assert.match(layout.errors.join(" "), pattern);
+    assert.match([...layout.errors, ...layout.warnings].join(" "), pattern);
   };
   check([table(" ", ["Tiaan Botha"])], /number/);
   check([table("1", ["Tiaan Botha"]), table("01", ["Hannah Botha"]), { ...table("1", ["Ann Sanders"]), id: "copy" }], /same number/);
   check([table("1", ["Tiaan 🦄"])], /missing/);
-  check([table("1", guests(400))], /doesn’t fit/);
+  check([table("1", guests(400))], /comes within/);
 });
 
 test("Exports are the artwork's exact size with outlined lettering, and settings restore safely", () => {
@@ -94,7 +94,7 @@ test("Exports are the artwork's exact size with outlined lettering, and settings
 
 test("The wedding seating plan prints at the default sizes, and untouched examples move to it", () => {
   const layout = createTablePages(font, font, WEDDING_TABLES, DEFAULT_TABLE_PAGE_SETTINGS);
-  assert.deepEqual(layout.errors, []);
+  assert.deepEqual([...layout.errors, ...layout.warnings], []);
   assert.deepEqual(layout.pages.map((page) => [page.heading, page.guests]), [["Table 1", 12], ["Table 2", 12], ["Table 3", 12], ["Table 4", 11], ["Table 5", 7], ["Table 6", 8], ["Table 7", 10]]);
   assert.equal(parseNames(WEDDING_GUESTS).length, 76);
   const seated = WEDDING_TABLES.flatMap((table) => parseNames(table.names));

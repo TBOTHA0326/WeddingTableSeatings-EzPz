@@ -53,15 +53,16 @@ test("A table page PNG is the artwork's exact 18.5 × 26 cm at 300 DPI", async (
   expect(bytes.readUInt32BE(41)).toBe(11811);
 });
 
-test("Settings persist, crowded tables offer a fit, and problems block downloads", async ({ page }) => {
+test("Settings persist, crowded tables warn and offer a fit, and real problems block downloads", async ({ page }) => {
   await page.goto("/table-pages");
   await expect(page.getByTestId("page-status")).toContainText("Ready to print");
   await page.getByLabel("Guest names", { exact: true }).selectOption("allura");
   await page.getByLabel("GUEST NAMES", { exact: true }).fill(Array.from({ length: 24 }, (_, index) => `Guest Number ${index + 1}`).join("\n"));
-  await expect(page.locator(".fit-notices")).toContainText("Table 1 doesn’t fit");
-  await expect(page.getByRole("button", { name: /Download (all pages|page)/ })).toBeDisabled();
+  await expect(page.locator(".fit-notices")).toContainText("some lettering comes within 3 mm of the artwork");
+  await expect(page.getByTestId("page-status")).toContainText("Ready to print · check the spacing");
+  await expect(page.getByRole("button", { name: /Download (all pages|page)/ })).toBeEnabled();
   await page.getByRole("button", { name: "Two columns" }).click();
-  await page.getByRole("button", { name: /Fit every table · names/ }).click();
+  await page.getByRole("button", { name: /Give every table more room · names/ }).click();
   await expect(page.getByTestId("page-status")).toContainText("Ready to print");
   await expect(page.locator(".toolbar-detail")).toContainText("two columns");
   const nameSize = await page.getByLabel("Name size").inputValue();
