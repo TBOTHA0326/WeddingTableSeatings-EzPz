@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { DEFAULT_SETTINGS, EXAMPLE_TABLES, STORAGE_KEY, restoreProject, type Project, type Settings, type Table } from "@/lib/project";
+import { DEFAULT_SETTINGS, STORAGE_KEY, WEDDING_TABLES, restoreProject, type Project, type Settings, type Table } from "@/lib/project";
 
 export function useProject() {
-  const [project, setProject] = useState<Project>({ tables: EXAMPLE_TABLES, settings: DEFAULT_SETTINGS });
+  const [project, setProject] = useState<Project>({ tables: WEDDING_TABLES, settings: DEFAULT_SETTINGS });
   const [ready, setReady] = useState(false);
   const [saveState, setSaveState] = useState<"saving" | "saved" | "unavailable">("saving");
   useEffect(() => {

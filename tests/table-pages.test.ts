@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseFont } from "../src/lib/fonts";
 import { DEFAULT_TABLE_PAGE_SETTINGS, PAGE, createTablePages, restoreTablePageSettings, tableHeading, tablePageSvg } from "../src/lib/table-pages";
+import { DEFAULT_SETTINGS, EXAMPLE_TABLES, WEDDING_GUESTS, WEDDING_TABLES, parseNames, restoreProject } from "../src/lib/project";
 
 const font = parseFont(new Uint8Array(readFileSync("public/fonts/heirloom.otf")));
 const table = (number: string, names: string[]) => ({ id: `table-${number}`, number, names: names.join("\n") });
@@ -89,4 +90,16 @@ test("Exports are the artwork's exact size with outlined lettering, and settings
   assert.doesNotMatch(svg, /<text\b|font-family/);
   assert.deepEqual(restoreTablePageSettings('{"nameSize":500,"headingFontId":"missing","color":"red","columns":3}'), { ...DEFAULT_TABLE_PAGE_SETTINGS, nameSize: 72 });
   assert.deepEqual(restoreTablePageSettings("not json"), DEFAULT_TABLE_PAGE_SETTINGS);
+});
+
+test("The wedding seating plan prints at the default sizes, and untouched examples move to it", () => {
+  const layout = createTablePages(font, font, WEDDING_TABLES, DEFAULT_TABLE_PAGE_SETTINGS);
+  assert.deepEqual(layout.errors, []);
+  assert.deepEqual(layout.pages.map((page) => [page.heading, page.guests]), [["Table 1", 12], ["Table 2", 12], ["Table 3", 12], ["Table 4", 11], ["Table 5", 7], ["Table 6", 8], ["Table 7", 10]]);
+  assert.equal(parseNames(WEDDING_GUESTS).length, 76);
+  const seated = WEDDING_TABLES.flatMap((table) => parseNames(table.names));
+  assert.deepEqual(parseNames(WEDDING_GUESTS).filter((name) => !seated.includes(name)), ["Tiaan Botha", "Hannah Botha", "QMusic", "Joe West"]);
+  assert.deepEqual(restoreProject(JSON.stringify({ tables: EXAMPLE_TABLES, settings: DEFAULT_SETTINGS }))!.tables, WEDDING_TABLES);
+  const edited = [{ ...EXAMPLE_TABLES[0], names: "Tiaan Botha" }, ...EXAMPLE_TABLES.slice(1)];
+  assert.deepEqual(restoreProject(JSON.stringify({ tables: edited, settings: DEFAULT_SETTINGS }))!.tables, edited);
 });

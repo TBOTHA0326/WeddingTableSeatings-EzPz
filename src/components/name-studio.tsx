@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowDownToLine, ArrowRight, Check, ChevronLeft, ChevronRight, CircleHelp, DoorOpen, File, Heart, Info, LoaderCircle, Moon, Sparkles, Sun, TriangleAlert, X } from "lucide-react";
 import { A4, type Label, type Sheet } from "@/lib/layout";
 import type { Pane } from "@/lib/panes";
-import { parseNames, type Settings } from "@/lib/project";
+import { WEDDING_TABLES, parseNames, type Settings } from "@/lib/project";
 import { useProject } from "@/hooks/use-project";
 import { useLettering } from "@/hooks/use-lettering";
 import { useExport } from "@/hooks/use-export";
@@ -23,7 +23,7 @@ export function NameStudio() {
   const { tables, settings, setTables, updateSettings, ready, saveState } = useProject();
   const deferredTables = useDeferredValue(tables);
   const { layout, panes, names, loading, fontError, retryFont } = useLettering(deferredTables, settings);
-  const [activeId, setActiveId] = useState("example-1");
+  const [activeId, setActiveId] = useState(WEDDING_TABLES[0].id);
   const [view, setView] = useState<"glass" | "sheets">("glass");
   const [pageIndex, setPageIndex] = useState(0);
   const [guides, setGuides] = useState(true);

@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import JSZip from "jszip";
+import { useExampleGuests } from "./fixtures";
+
+test.beforeEach(async ({ page }) => useExampleGuests(page));
 
 test("Each table becomes one framed page that shares tables with the seating window", async ({ page }) => {
   const errors: string[] = [];

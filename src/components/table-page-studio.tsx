@@ -7,7 +7,7 @@ import type { Font } from "fontkit";
 import { ArrowDownToLine, Check, ChevronLeft, ChevronRight, Heart, LoaderCircle, Plus, Printer, Sparkles, TriangleAlert } from "lucide-react";
 import { useProject } from "@/hooks/use-project";
 import { loadFont } from "@/hooks/use-lettering";
-import { FONTS, parseNames } from "@/lib/project";
+import { FONTS, WEDDING_TABLES, parseNames } from "@/lib/project";
 import { downloadBlob, svgToPng, type ExportFormat } from "@/lib/export";
 import { DEFAULT_TABLE_PAGE_SETTINGS, PAGE, PAGE_PIXELS, TABLE_PAGE_STORAGE_KEY, createTablePages, restoreTablePageSettings, tablePageSvg, type TablePage, type TablePageLayout, type TablePageSettings } from "@/lib/table-pages";
 import { Bow } from "./bow";
@@ -72,7 +72,7 @@ export function TablePageStudio() {
   const { settings, ready, saveError, update } = useTablePageSettings();
   const assets = useTablePageAssets(settings.nameFontId, settings.headingFontId);
   const deferredTables = useDeferredValue(project.tables);
-  const [activeId, setActiveId] = useState("example-1");
+  const [activeId, setActiveId] = useState(WEDDING_TABLES[0].id);
   const [format, setFormat] = useState<ExportFormat>("png");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");

@@ -29,7 +29,7 @@ export const MAX_GUESTS = 1000;
 export const DEFAULT_SETTINGS: Settings = {
   fontId: "angelface", fontSize: 44, color: "#24211e", gap: 5,
   margin: 10, arrangement: "compact", nameStyle: "single",
-  paneWidth: 25, paneHeight: 35, paneSpacing: 8, paneCount: 6,
+  paneWidth: 25, paneHeight: 35, paneSpacing: 8, paneCount: 7,
   headingFontId: "cormorant", headingSize: 64,
 };
 export const EXAMPLE_NAMES = [
@@ -46,6 +46,33 @@ export const EXAMPLE_TABLES: Table[] = Array.from({ length: 3 }, (_, index) => (
   id: `example-${index + 1}`, number: String(index + 1), names: EXAMPLE_NAMES.split("\n").slice(index * 8, index * 8 + 8).join("\n"),
 }));
 
+// The couple's seating plan: every new browser starts with these tables.
+export const WEDDING_TABLES: Table[] = [
+  ["Taylo Vrey", "Theunis Laubsher", "Frans van Kradenburg", "Sonya Fourie", "Werner van Waveren", "Dera Erasmus", "Zaylé van Waveren", "Nathan Nel", "Chris Bruwer", "Kaylin Thiart", "Waldré Meyer", "Christna Meyer"],
+  ["Ann Sanders", "Christa Spamers", "Morné Strydom", "Ryan Wiggil", "Bianka Snyman", "Frikkie Snyman", "Kaylem Snyman", "Duné Snyman", "Joey Coetzer", "Cobus Coetzer", "Louis Ries", "Nicolaine Ries"],
+  ["Michael Botha", "Anita Botha", "Christa Botha", "Hannes van Aswegen", "Ané Lottering", "Corbin Lottering", "Soul Lottering", "Petri Lottering", "Ryna Botha", "Piet Botha", "Mariska Wiggil", "Charl Venter"],
+  ["Roy Strydom", "Cornet Strydom", "Diseri Pearson", "Soné Pearson", "Mia Pearson", "Marné Strydom", "Ruben Smal", "Naomi Roodt", "Willie Roodt", "Bertus van Jaarsveld", "Bianka van Jaarsveld"],
+  ["Charlotte Fourie", "Anne Fourie", "Lynette Smith", "Christopher Smith", "Sloane Hessel", "Diané Ludick", "Ziyadh Latib"],
+  ["Gert Grobler", "Maria Grobler", "Coria Grobler", "Nico Barkhuizen", "Dewald Esterhuizen", "Nicolene Esterhuizen", "Mike Grimsdel", "Nettie Grimsdel"],
+  ["Aubrey Kurten", "Chené Kurten", "Victor Kurten", "Doney Kurten", "Jayden Kurten", "Griffin Bisschoff", "Veronica Bisschoff", "Adrienne Kilian", "Stefan Kilian", "Keeza Kilian"],
+].map((names, index) => ({ id: `table-${index + 1}`, number: String(index + 1), names: names.join("\n") }));
+// Everyone who receives a seating card, including guests without a table (the couple and the band).
+export const WEDDING_GUESTS = [
+  "Tiaan Botha", "Hannah Botha", "Taylo Vrey", "Theunis Laubsher", "Frans van Kradenburg", "Sonya Fourie",
+  "Dera Erasmus", "Werner van Waveren", "Zaylé van Waveren", "Chris Bruwer", "Kaylin Thiart", "Nathan Nel",
+  "Waldré Meyer", "Christna Meyer", "Ann Sanders", "Christa Spamers", "Morné Strydom", "Ryan Wiggil",
+  "Bianka Snyman", "Frikkie Snyman", "Kaylem Snyman", "Duné Snyman", "Joey Coetzer", "Cobus Coetzer",
+  "Louis Ries", "Nicolaine Ries", "Michael Botha", "Anita Botha", "Christa Botha", "Hannes van Aswegen",
+  "Piet Botha", "Ryna Botha", "Ané Lottering", "Corbin Lottering", "Soul Lottering", "Petri Lottering",
+  "Mariska Wiggil", "Charl Venter", "Roy Strydom", "Cornet Strydom", "Marné Strydom", "Ruben Smal",
+  "Soné Pearson", "Diseri Pearson", "Mia Pearson", "Naomi Roodt", "Willie Roodt", "Bertus van Jaarsveld",
+  "Bianka van Jaarsveld", "Charlotte Fourie", "Anne Fourie", "Lynette Smith", "Christopher Smith", "Sloane Hessel",
+  "Diané Ludick", "Ziyadh Latib", "Gert Grobler", "Maria Grobler", "Coria Grobler", "Nico Barkhuizen",
+  "Dewald Esterhuizen", "Nicolene Esterhuizen", "Mike Grimsdel", "Nettie Grimsdel", "Aubrey Kurten", "Chené Kurten",
+  "Victor Kurten", "Doney Kurten", "Jayden Kurten", "Griffin Bisschoff", "Veronica Bisschoff", "Adrienne Kilian",
+  "Stefan Kilian", "Keeza Kilian", "QMusic", "Joe West",
+].join("\n");
+
 export function parseNames(raw: string): string[] {
   return raw.split(/\r?\n/).map((name) => name.normalize("NFC").trim().replace(/\s+/g, " ")).filter(Boolean);
 }
@@ -61,8 +88,10 @@ export function restoreProject(raw: string | null): Project | null {
     if (project.tables.some((table: Table) => typeof table.id !== "string" || typeof table.number !== "string" || typeof table.names !== "string" || table.names.length > 200_000)) return null;
     if (new Set(project.tables.map((table: Table) => table.id)).size !== project.tables.length) return null;
     const settings = project.settings;
+    // A browser still holding the untouched examples moves to the wedding seating plan.
+    const untouched = project.tables.length === EXAMPLE_TABLES.length && project.tables.every((table: Table, index: number) => table.id === EXAMPLE_TABLES[index].id && table.number === EXAMPLE_TABLES[index].number && table.names === EXAMPLE_TABLES[index].names);
     return {
-      tables: project.tables,
+      tables: untouched ? WEDDING_TABLES : project.tables,
       settings: {
         fontId: FONTS.some((font) => font.id === settings.fontId) ? settings.fontId : DEFAULT_SETTINGS.fontId,
         fontSize: clamp(settings.fontSize, DEFAULT_SETTINGS.fontSize, 12, 60),

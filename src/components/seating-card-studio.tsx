@@ -6,7 +6,7 @@ import Image from "next/image";
 import JSZip from "jszip";
 import { ArrowDownToLine, Check, ChevronLeft, ChevronRight, FileUp, Heart, LoaderCircle, Printer, Scissors, TriangleAlert } from "lucide-react";
 import { useCardAssets } from "@/hooks/use-card-assets";
-import { EXAMPLE_TABLES, FONTS, STORAGE_KEY, restoreProject } from "@/lib/project";
+import { EXAMPLE_TABLES, FONTS, WEDDING_GUESTS } from "@/lib/project";
 import { downloadBlob, svgToPng, type ExportFormat } from "@/lib/export";
 import { CARD_ASPECT, CARD_GUESTS_KEY, CARD_STORAGE_KEY, DEFAULT_CARD_SETTINGS, SIX_CARD_WIDTH, cardGuests, cardMarkup, cardSheetSvg, createCardLayout, restoreCardSettings, type CardSettings } from "@/lib/seating-cards";
 import { Bow } from "./bow";
@@ -37,10 +37,10 @@ function useGuestList() {
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       try {
-        // The first visit starts from the names already entered in the seating window.
+        // New browsers, and lists still holding the untouched examples, start with every wedding guest.
         const saved = localStorage.getItem(CARD_GUESTS_KEY);
-        setNames(saved ?? (restoreProject(localStorage.getItem(STORAGE_KEY))?.tables ?? EXAMPLE_TABLES).map((table) => table.names.trim()).filter(Boolean).join("\n"));
-      } catch { setNames(EXAMPLE_TABLES.map((table) => table.names).join("\n")); setSaveError(true); }
+        setNames(saved === null || saved === EXAMPLE_TABLES.map((table) => table.names.trim()).join("\n") ? WEDDING_GUESTS : saved);
+      } catch { setNames(WEDDING_GUESTS); setSaveError(true); }
       setReady(true);
     });
     return () => cancelAnimationFrame(frame);

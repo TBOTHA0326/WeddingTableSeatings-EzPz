@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import JSZip from "jszip";
+import { useExampleGuests } from "./fixtures";
+
+test.beforeEach(async ({ page }) => useExampleGuests(page));
 
 test("Table, glass-capacity and physical fit controls respond and persist", async ({ page }) => {
   await page.goto("/");

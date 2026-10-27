@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { FileUp, Heart, Plus, Trash2, X } from "lucide-react";
-import { EXAMPLE_TABLES, parseNames, type Table } from "@/lib/project";
+import { WEDDING_TABLES, parseNames, type Table } from "@/lib/project";
 
 type Props = { tables: Table[]; activeId: string; setActiveId: (id: string) => void; setTables: (tables: Table[]) => void; guests: number; ready: boolean; description: string; hint?: string };
 
@@ -42,11 +42,11 @@ export function TableEditor({ tables, activeId, setActiveId, setTables, guests, 
         <div className="table-editor-header"><label className="field-label" htmlFor="table-number">TABLE NUMBER</label><button className="text-button subtle" onClick={removeTable} aria-label={`Remove table ${active.number}`}><Trash2 size={13} />Remove</button></div>
         <input id="table-number" className="text-input table-number-input" value={active.number} maxLength={20} onChange={(event) => changeTable({ number: event.target.value })} disabled={!ready} />
         <div className="table-editor-header guest-label"><label className="field-label" htmlFor="guest-names">GUEST NAMES</label><button className="text-button" onClick={() => importRef.current?.click()} disabled={!ready}><FileUp size={13} />Import .txt</button></div>
-        <textarea id="guest-names" spellCheck={false} className="names-input" value={active.names} onChange={(event) => changeTable({ names: event.target.value })} placeholder={"Amelia | van der Merwe\nOliver | Botha\nCharlotte | de Villiers"} disabled={!ready} aria-describedby="names-hint" />
+        <textarea id="guest-names" spellCheck={false} className="names-input" value={active.names} onChange={(event) => changeTable({ names: event.target.value })} placeholder={"Taylo Vrey\nTheunis Laubsher\nFrans van Kradenburg"} disabled={!ready} aria-describedby="names-hint" />
         <input ref={importRef} type="file" accept=".txt,text/plain" className="sr-only" tabIndex={-1} onChange={(event) => void importNames(event.target.files?.[0])} />
         <p className="field-hint" id="names-hint">{hint ?? <>One guest per line. Use <span className="pipe-example">First name | Surname</span> to keep a surname together in the two-line style.</>}</p>
         {importError && <p className="inline-error" role="alert">{importError}</p>}
         {undo && <div className="undo-notice">Table removed.<button onClick={() => { setTables(undo); setActiveId(undo[0].id); setUndo(null); }}>Undo</button><button aria-label="Dismiss undo" onClick={() => setUndo(null)}><X size={12} /></button></div>}
-        <div className="little-note"><Heart size={15} /><span>{tables.every((table) => EXAMPLE_TABLES.some((example) => example.id === table.id && example.names === table.names)) ? "A few example guests to get you started." : "Your guest list stays in this browser."}</span></div>
+        <div className="little-note"><Heart size={15} /><span>{tables.every((table) => WEDDING_TABLES.some((planned) => planned.id === table.id && planned.names === table.names)) ? "Your seating plan is loaded and ready." : "Your guest list stays in this browser."}</span></div>
   </>;
 }

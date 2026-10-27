@@ -1,20 +1,20 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import JSZip from "jszip";
+import { useExampleGuests } from "./fixtures";
 
-test("Seating cards start from the seating window names, use one guest list, print exact artwork with lower-panel outlined names, and paginate", async ({ page }) => {
+test.beforeEach(async ({ page }) => useExampleGuests(page));
+
+test("Seating cards use their own guest list, print exact artwork with lower-panel outlined names, and paginate", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("/");
-  await expect(page.getByTestId("fit-status")).toContainText("Everything fits beautifully");
-  await page.getByLabel("GUEST NAMES", { exact: true }).fill("Tiaan | Botha\nAmelia | van der Merwe\nTiaan | Botha");
-  await page.getByRole("link", { name: "Seating cards" }).click();
+  await page.goto("/seating-cards");
   await expect(page.getByTestId("card-status")).toContainText("Ready to cut & fold");
-  await expect(page.locator(".count-badge")).toHaveText("19 guests");
+  await expect(page.locator(".count-badge")).toHaveText("24 guests");
   await expect(page.getByRole("button", { name: "A4 sheets", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".card-sheet-preview image")).toHaveCount(6);
   await page.getByRole("button", { name: "Flat card", exact: true }).click();
-  await expect(page.getByRole("img", { name: "Fold-over seating card for Tiaan Botha", exact: true })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Fold-over seating card for Amelia van der Merwe", exact: true })).toBeVisible();
   const source = await readFile("public/ActualCardArtwork.jpeg");
   expect(await page.locator(".card-artwork image").getAttribute("href")).toBe(`data:image/jpeg;base64,${source.toString("base64")}`);
   const nameTransform = await page.locator(".card-artwork [data-name]").getAttribute("transform");
@@ -28,7 +28,7 @@ test("Seating cards start from the seating window names, use one guest list, pri
   const zip = await JSZip.loadAsync(await readFile((await (await zipPromise).path())!));
   expect(zip.file(/\.svg$/)).toHaveLength(4);
   const combined = (await Promise.all(zip.file(/\.svg$/).map((file) => file.async("string")))).join("");
-  expect((combined.match(/data-name=/g) ?? []).length).toBe(19);
+  expect((combined.match(/data-name=/g) ?? []).length).toBe(24);
   await page.getByLabel("GUEST NAMES", { exact: true }).fill("Tiaan Botha\nAmelia | van der Merwe\nTiaan Botha");
   await expect(page.locator(".count-badge")).toHaveText("3 guests");
   const downloadPromise = page.waitForEvent("download");
@@ -42,7 +42,7 @@ test("Seating cards start from the seating window names, use one guest list, pri
   await page.reload();
   await expect(page.getByLabel("GUEST NAMES", { exact: true })).toHaveValue("Tiaan Botha\nAmelia | van der Merwe\nTiaan Botha");
   await page.getByRole("link", { name: "Seating window" }).click();
-  await expect(page.getByLabel("GUEST NAMES", { exact: true })).toHaveValue("Tiaan | Botha\nAmelia | van der Merwe\nTiaan | Botha");
+  await expect(page.getByLabel("GUEST NAMES", { exact: true })).toHaveValue(/^Amelia \| van der Merwe\nOliver \| Botha/);
   expect(errors).toEqual([]);
 });
 
