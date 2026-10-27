@@ -8,7 +8,7 @@ import { createPanes } from "@/lib/panes";
 import { createLayout, type Layout, type LabelOverride } from "@/lib/layout";
 
 const cache = new Map<FontId, Promise<Font>>();
-function loadFont(id: FontId): Promise<Font> {
+export function loadFont(id: FontId): Promise<Font> {
   if (!cache.has(id)) {
     const file = FONTS.find((font) => font.id === id)!.file;
     cache.set(id, fetch(file).then((response) => {

@@ -15,7 +15,7 @@ function crc32(bytes: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-// A canvas PNG has no reliable physical size. Write a pHYs chunk for actual-size A4 printing.
+// A canvas PNG has no reliable physical size. Write a pHYs chunk for actual-size printing.
 export function withPngResolution(bytes: Uint8Array, dpi: number): Uint8Array<ArrayBuffer> {
   const chunk = new Uint8Array(21);
   const view = new DataView(chunk.buffer);
@@ -33,11 +33,11 @@ export function withPngResolution(bytes: Uint8Array, dpi: number): Uint8Array<Ar
   return output;
 }
 
-export async function svgToPng(svg: string, background?: string): Promise<Blob> {
+export async function svgToPng(svg: string, background?: string, size: { width: number; height: number } = { width: PNG_WIDTH, height: PNG_HEIGHT }): Promise<Blob> {
   const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
   const canvas = document.createElement("canvas");
-  canvas.width = PNG_WIDTH;
-  canvas.height = PNG_HEIGHT;
+  canvas.width = size.width;
+  canvas.height = size.height;
   try {
     const image = new Image();
     await new Promise<void>((resolve, reject) => {
@@ -47,8 +47,8 @@ export async function svgToPng(svg: string, background?: string): Promise<Blob> 
     });
     const context = canvas.getContext("2d");
     if (!context) throw new Error("This browser could not create a PNG. Please download SVG instead.");
-    if (background) { context.fillStyle = background; context.fillRect(0, 0, PNG_WIDTH, PNG_HEIGHT); }
-    context.drawImage(image, 0, 0, PNG_WIDTH, PNG_HEIGHT);
+    if (background) { context.fillStyle = background; context.fillRect(0, 0, size.width, size.height); }
+    context.drawImage(image, 0, 0, size.width, size.height);
     const png = await new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("PNG export failed. Please try SVG.")), "image/png"));
     const data = withPngResolution(new Uint8Array(await png.arrayBuffer()), PNG_DPI);
     return new Blob([data], { type: "image/png" });

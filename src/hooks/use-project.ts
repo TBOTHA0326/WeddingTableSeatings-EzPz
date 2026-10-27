@@ -23,10 +23,13 @@ export function useProject() {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(project)); setSaveState("saved"); }
       catch { setSaveState("unavailable"); }
     }, 350);
+    // Flush pending edits when moving between the studios or leaving the page.
+    const flush = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(project)); } catch { /* Reported by the next autosave. */ } };
+    window.addEventListener("pagehide", flush);
     return () => {
       clearTimeout(timer);
-      // Flush pending edits when moving between the two studios or leaving the page.
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(project)); } catch { /* Reported by the next autosave. */ }
+      window.removeEventListener("pagehide", flush);
+      flush();
     };
   }, [project, ready]);
   const setTables = useCallback((tables: Table[]) => {

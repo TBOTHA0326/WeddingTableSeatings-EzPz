@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ArrowDownToLine, Check, ChevronDown, FileUp, Grid2X2, Heart, Plus, SlidersHorizontal, Trash2, Type, Users, X } from "lucide-react";
-import { EXAMPLE_TABLES, FONTS, parseNames, type Settings, type Table } from "@/lib/project";
+import { useState } from "react";
+import { ArrowDownToLine, Check, ChevronDown, Grid2X2, Plus, SlidersHorizontal, Type, Users } from "lucide-react";
+import { FONTS, type Settings, type Table } from "@/lib/project";
 import type { ExportFormat } from "@/lib/export";
+import { TableEditor } from "./table-editor";
 
 type Props = {
   tables: Table[]; activeId: string; setActiveId: (id: string) => void; setTables: (tables: Table[]) => void;
@@ -11,38 +12,11 @@ type Props = {
   guests: number; sheets: number; paneFit: boolean; format: ExportFormat; setFormat: (format: ExportFormat) => void;
   canExport: boolean; busy: boolean; progress: string; download: () => void; ready: boolean;
 };
-const COLORS = [{ name: "Ink", value: "#24211e" }, { name: "Camel", value: "#95724d" }, { name: "White", value: "#ffffff" }, { name: "Champagne", value: "#c6aa7b" }];
+export const COLORS = [{ name: "Ink", value: "#24211e" }, { name: "Camel", value: "#95724d" }, { name: "White", value: "#ffffff" }, { name: "Champagne", value: "#c6aa7b" }];
 
 export function StudioControls(props: Props) {
   const { tables, activeId, setActiveId, setTables, settings, updateSettings } = props;
   const [tab, setTab] = useState<"tables" | "lettering" | "glass">("tables");
-  const [undo, setUndo] = useState<Table[] | null>(null);
-  const [importError, setImportError] = useState("");
-  const importRef = useRef<HTMLInputElement>(null);
-  const active = tables.find((table) => table.id === activeId) ?? tables[0];
-  const changeTable = (patch: Partial<Table>) => setTables(tables.map((table) => table.id === active.id ? { ...table, ...patch } : table));
-  const addTable = () => {
-    let number = 1;
-    while (tables.some((table) => table.number === String(number))) number++;
-    const id = crypto.randomUUID();
-    setTables([...tables, { id, number: String(number), names: "" }]);
-    setActiveId(id);
-  };
-  const removeTable = () => {
-    setUndo(tables);
-    const remaining = tables.filter((table) => table.id !== active.id);
-    setTables(remaining.length ? remaining : [{ ...active, names: "" }]);
-    setActiveId(remaining[0]?.id ?? active.id);
-  };
-  const importNames = async (file?: File) => {
-    if (!file) return;
-    try {
-      if (file.size > 200_000) throw new Error("Please use a text file smaller than 200 KB.");
-      changeTable({ names: await file.text() });
-      setImportError("");
-    } catch (error) { setImportError(error instanceof Error ? error.message : "This file could not be imported."); }
-    if (importRef.current) importRef.current.value = "";
-  };
   return <aside className="controls-panel" aria-label="Wedding seating settings">
     <div className="control-tabs" role="tablist" aria-label="Studio settings">
       {([{ id: "tables", label: "Tables", Icon: Users }, { id: "lettering", label: "Lettering", Icon: Type }, { id: "glass", label: "Glass panes", Icon: Grid2X2 }] as const).map(({ id, label, Icon }) => <button key={id} role="tab" id={`tab-${id}`} aria-controls={`panel-${id}`} aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onKeyDown={(event) => {
@@ -50,20 +24,7 @@ export function StudioControls(props: Props) {
       }} onClick={() => setTab(id)}><Icon size={15} />{label}</button>)}
     </div>
     <div className="controls-body" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-      {tab === "tables" && <>
-        <div className="section-heading"><p className="eyebrow">01 / YOUR FAVOURITE PEOPLE</p><span className="count-badge">{props.guests} guests</span></div>
-        <h2>A place for everyone.</h2><p className="section-description">One table per pane. A little love in every name.</p>
-        <div className="table-selector" aria-label="Select a table">{tables.map((table) => <button key={table.id} className={table.id === active.id ? "table-chip selected" : "table-chip"} onClick={() => setActiveId(table.id)} aria-pressed={table.id === active.id}>Table {table.number || "?"}<span>{parseNames(table.names).length}</span></button>)}<button className="table-chip add-chip" onClick={addTable} disabled={tables.length >= 60 || !props.ready} aria-label="Add a table"><Plus size={15} /></button></div>
-        <div className="table-editor-header"><label className="field-label" htmlFor="table-number">TABLE NUMBER</label><button className="text-button subtle" onClick={removeTable} aria-label={`Remove table ${active.number}`}><Trash2 size={13} />Remove</button></div>
-        <input id="table-number" className="text-input table-number-input" value={active.number} maxLength={20} onChange={(event) => changeTable({ number: event.target.value })} disabled={!props.ready} />
-        <div className="table-editor-header guest-label"><label className="field-label" htmlFor="guest-names">GUEST NAMES</label><button className="text-button" onClick={() => importRef.current?.click()} disabled={!props.ready}><FileUp size={13} />Import .txt</button></div>
-        <textarea id="guest-names" spellCheck={false} className="names-input" value={active.names} onChange={(event) => changeTable({ names: event.target.value })} placeholder={"Amelia | van der Merwe\nOliver | Botha\nCharlotte | de Villiers"} disabled={!props.ready} aria-describedby="names-hint" />
-        <input ref={importRef} type="file" accept=".txt,text/plain" className="sr-only" tabIndex={-1} onChange={(event) => void importNames(event.target.files?.[0])} />
-        <p className="field-hint" id="names-hint">One guest per line. Use <span className="pipe-example">First name | Surname</span> to keep a surname together in the two-line style.</p>
-        {importError && <p className="inline-error" role="alert">{importError}</p>}
-        {undo && <div className="undo-notice">Table removed.<button onClick={() => { setTables(undo); setActiveId(undo[0].id); setUndo(null); }}>Undo</button><button aria-label="Dismiss undo" onClick={() => setUndo(null)}><X size={12} /></button></div>}
-        <div className="little-note"><Heart size={15} /><span>{tables.every((table) => EXAMPLE_TABLES.some((example) => example.id === table.id && example.names === table.names)) ? "A few example guests to get you started." : "Your guest list stays in this browser."}</span></div>
-      </>}
+      {tab === "tables" && <TableEditor tables={tables} activeId={activeId} setActiveId={setActiveId} setTables={setTables} guests={props.guests} ready={props.ready} description="One table per pane. A little love in every name." />}
       {tab === "lettering" && <>
         <p className="eyebrow">02 / MAKE IT FEEL LIKE YOU</p><h2>A lovely first impression.</h2>
         <p className="section-description">Pick the lettering for your special day.</p>
