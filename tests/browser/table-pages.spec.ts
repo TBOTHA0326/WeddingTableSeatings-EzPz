@@ -50,19 +50,27 @@ test("A table page PNG is the artwork's exact 18.5 × 26 cm at 300 DPI", async (
   expect(bytes.readUInt32BE(41)).toBe(11811);
 });
 
-test("Settings persist, long tables shrink or split, and problems block downloads", async ({ page }) => {
+test("Settings persist, crowded tables offer a fit, and problems block downloads", async ({ page }) => {
   await page.goto("/table-pages");
   await expect(page.getByTestId("page-status")).toContainText("Ready to print");
   await page.getByLabel("Guest names", { exact: true }).selectOption("allura");
-  await page.getByLabel("Same lettering size on every table").uncheck();
   await page.getByLabel("GUEST NAMES", { exact: true }).fill(Array.from({ length: 24 }, (_, index) => `Guest Number ${index + 1}`).join("\n"));
+  await expect(page.locator(".fit-notices")).toContainText("Table 1 doesn’t fit");
+  await expect(page.getByRole("button", { name: /Download (all pages|page)/ })).toBeDisabled();
+  await page.getByRole("button", { name: "Two columns" }).click();
+  await page.getByRole("button", { name: /Fit every table · names/ }).click();
+  await expect(page.getByTestId("page-status")).toContainText("Ready to print");
   await expect(page.locator(".toolbar-detail")).toContainText("two columns");
+  const nameSize = await page.getByLabel("Name size").inputValue();
+  expect(Number(nameSize)).toBeLessThan(20);
+  await page.getByLabel("Space below heading").fill("25");
   await page.reload();
   await expect(page.getByTestId("page-status")).toContainText("Ready to print");
   await expect(page.getByLabel("GUEST NAMES", { exact: true })).toHaveValue(/^Guest Number 1\n/);
-  await expect(page.locator(".toolbar-detail")).toContainText("two columns");
   await expect(page.getByLabel("Guest names", { exact: true })).toHaveValue("allura");
-  await expect(page.getByLabel("Same lettering size on every table")).not.toBeChecked();
+  await expect(page.getByLabel("Name size")).toHaveValue(nameSize);
+  await expect(page.getByLabel("Space below heading")).toHaveValue("25");
+  await expect(page.getByRole("button", { name: "Two columns" })).toHaveAttribute("aria-pressed", "true");
   await page.getByLabel("TABLE NUMBER").fill("2");
   await expect(page.locator(".fit-notices")).toContainText("same number");
   await expect(page.getByRole("button", { name: /Download (all pages|page)/ })).toBeDisabled();
