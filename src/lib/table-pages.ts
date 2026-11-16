@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS, FONTS, MAX_GUESTS, parseNames, type FontId, type Tabl
 export const PAGE = { width: 185, height: 260 } as const;
 export const PAGE_PIXELS = { width: 2185, height: 3071 } as const;
 export const TABLE_PAGE_STORAGE_KEY = "ever-after-table-pages-v1";
+export const ARTWORK_URL = "/TablePageArtwork.jpeg";
 export type TablePageSettings = { headingFontId: FontId; nameFontId: FontId; headingSize: number; nameSize: number; lineSpacing: number; headingGap: number; columns: 1 | 2; color: string };
 export const DEFAULT_TABLE_PAGE_SETTINGS: TablePageSettings = { headingFontId: "heirloom", nameFontId: "heirloom", headingSize: 72, nameSize: 20, lineSpacing: 1.4, headingGap: 14, columns: 1, color: "#24211e" };
 export type PlacedLine = { label: Label; x: number; y: number; scale: number };
@@ -142,9 +143,35 @@ export function createTablePages(nameFont: Font, headingFont: Font, tables: Tabl
   return result;
 }
 
-export function tablePageSvg(page: TablePage, artwork: string, color: string): string {
+export function tablePageContent(page: TablePage, artwork: string, color: string): string {
   const lines = page.lines.map((line) => `<g data-name="${escapeXml(line.label.name.split("|").map((part) => part.trim()).filter(Boolean).join(" "))}" transform="translate(${line.x.toFixed(4)} ${line.y.toFixed(4)}) scale(${line.scale.toFixed(5)})">${line.label.paths.map((path) => `<path transform="translate(${path.x.toFixed(4)} ${path.y.toFixed(4)})" d="${path.d}"/>`).join("")}</g>`).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${PAGE.width}mm" height="${PAGE.height}mm" viewBox="0 0 ${PAGE.width} ${PAGE.height}"><title>${escapeXml(page.heading)} — Ever After</title><image href="${escapeXml(artwork)}" width="${PAGE.width}" height="${PAGE.height}" preserveAspectRatio="none"/><g fill="${escapeXml(color)}">${lines}</g></svg>`;
+  return `<image href="${escapeXml(artwork)}" width="${PAGE.width}" height="${PAGE.height}" preserveAspectRatio="none"/><g fill="${escapeXml(color)}">${lines}</g>`;
+}
+
+const pageSvg = (title: string, content: string) => `<svg xmlns="http://www.w3.org/2000/svg" width="${PAGE.width}mm" height="${PAGE.height}mm" viewBox="0 0 ${PAGE.width} ${PAGE.height}"><title>${escapeXml(title)} — Ever After</title>${content}</svg>`;
+
+export function tablePageSvg(page: TablePage, artwork: string, color: string): string {
+  return pageSvg(page.heading, tablePageContent(page, artwork, color));
+}
+
+// Full-page pictures that print with the tables, at the same size and with no lettering.
+// `align` picks which side stays when a picture's proportions differ from the page.
+export type PicturePage = { id: string; name: string; file: string; align: "xMinYMid" | "xMidYMid" };
+export const PICTURE_PAGES: PicturePage[] = [
+  { id: "monogram", name: "T & H monogram", file: "/picture-pages/monogram.jpeg", align: "xMidYMid" },
+  { id: "date", name: "Wedding date", file: "/picture-pages/date.jpeg", align: "xMidYMid" },
+  { id: "hands", name: "Hands photo", file: "/picture-pages/hands.jpeg", align: "xMinYMid" },
+  { id: "ring", name: "Ring photo", file: "/picture-pages/ring.jpeg", align: "xMidYMid" },
+  { id: "couple", name: "Couple photo", file: "/picture-pages/couple.jpeg", align: "xMidYMid" },
+];
+
+// `slice` fills the whole page, trimming the overflow rather than leaving white bars.
+export function picturePageContent(picture: PicturePage, href: string): string {
+  return `<image href="${escapeXml(href)}" width="${PAGE.width}" height="${PAGE.height}" preserveAspectRatio="${picture.align} slice"/>`;
+}
+
+export function picturePageSvg(picture: PicturePage, href: string): string {
+  return pageSvg(picture.name, picturePageContent(picture, href));
 }
 
 const clamp = (value: unknown, fallback: number, min: number, max: number) =>

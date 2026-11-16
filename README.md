@@ -25,9 +25,23 @@ Open [localhost:3000](http://localhost:3000).
 
 The sample contains three tables with eight guests each. Replace these with your guest list. Names and settings save automatically in this browser’s local storage. No account, database, or server upload is involved. Up to 60 tables and 1,000 guests are supported.
 
+## Table pages
+
+Open **Table pages** in the studio navigation, or visit `/table-pages`. Each table with guests prints on its own 18.5 × 26 cm page over `public/TablePageArtwork.jpeg`, sharing its tables with the seating window. Downloads are 300-DPI PNGs or SVGs, packaged in a ZIP when there is more than one page, and **Print / Save as PDF** uses the same page size.
+
+**Picture pages** (the T & H monogram, the wedding date and three photos) print with the tables at the same size, with no lettering. They are listed in `PICTURE_PAGES` in `src/lib/table-pages.ts` and read from `public/picture-pages/`. That folder is deliberately ignored by git because the pictures are personal and this repository is public, so a fresh checkout or a deployment built from one has no picture pages and works with tables alone. To change a picture, replace its file under the same name. Pictures fill the page and trim any overflow; for sharp prints use files of about 2185 × 3071 px.
+
+## Vinyl stickers
+
+Open **Vinyl stickers** in the studio navigation, or visit `/vinyl-stickers`. Each sticker has its own words, font, colour and size. Set its width or height in centimetres, measured to the edges of the lettering; the other side follows in proportion. Press Enter in the words box to stack lines within one sticker.
+
+The preview draws the door to scale, in full and as a close-up of the solid section above the glass, with your saved table and picture pages in the panes. It starts with the measured black door (61 cm wide, the groove 10 cm down, the glass 21 cm down) and white "Find Your" above the groove with "Seat" below it, at the same lettering size. Change the measurements or door colour under **Your door**. Stickers that are wider than the door, run off the top, reach the glass or cross the groove get a note, but can still be downloaded. Measuring lines appear in the preview only.
+
+**SVG** downloads are one vector shape at the exact size, with no background or transforms. Paper.js merges overlapping outlines first, because a vinyl cutter follows every outline and would otherwise slice through joined script letters. **PNG** downloads are transparent at 300 DPI. Cut vinyl can struggle with strokes thinner than about 1–2 mm, so check thin scripts with your supplier.
+
 ## Fold-over seating cards
 
-Open **Seating cards** in the studio navigation, or visit `/seating-cards`. The page shares your existing guest tables and prints one fold-over card per guest. Names and compound surnames appear together on one line in the lower-right area of the bottom panel; the upper panel stays blank.
+Open **Seating cards** in the studio navigation, or visit `/seating-cards`. The page keeps its own single guest list, with no tables, and prints one fold-over card per guest. Names and compound surnames appear together on one line in the lower-right area of the bottom panel; the upper panel stays blank.
 
 The cards embed `public/ActualCardArtwork.jpeg` exactly as supplied, including both panels, border, florals, and centre strip. The original artwork's 787 × 1150 proportions remain fixed. The default layout fits **six complete cards per A4 sheet**, in two columns and three rows. Each flat card is approximately 61 × 89.1 mm (standing face 61 × 44.6 mm). The page opens on the live A4 preview with your guest names. Select **Custom card width** or enter another width to override the default; your choice saves on this device. Select the six-card preset again to reset it. Older saved card settings adopt the new six-card default while retaining lettering and guide preferences.
 

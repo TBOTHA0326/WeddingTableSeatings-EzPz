@@ -1,22 +1,43 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import JSZip from "jszip";
 import type { Font } from "fontkit";
 import { ArrowDownToLine, Check, ChevronLeft, ChevronRight, Heart, LoaderCircle, Plus, Printer, Sparkles, TriangleAlert } from "lucide-react";
 import { useProject } from "@/hooks/use-project";
 import { loadFont } from "@/hooks/use-lettering";
-import { WEDDING_TABLES, parseNames } from "@/lib/project";
+import { WEDDING_TABLES, parseNames, type Table } from "@/lib/project";
 import { downloadBlob, svgToPng, type ExportFormat } from "@/lib/export";
-import { DEFAULT_TABLE_PAGE_SETTINGS, PAGE, PAGE_PIXELS, TABLE_PAGE_STORAGE_KEY, createTablePages, restoreTablePageSettings, tablePageSvg, type TablePage, type TablePageLayout, type TablePageSettings } from "@/lib/table-pages";
+import { ARTWORK_URL, DEFAULT_TABLE_PAGE_SETTINGS, PAGE, PAGE_PIXELS, TABLE_PAGE_STORAGE_KEY, PICTURE_PAGES, createTablePages, picturePageSvg, restoreTablePageSettings, tablePageSvg, type PicturePage, type TablePage, type TablePageLayout, type TablePageSettings } from "@/lib/table-pages";
 import { Bow } from "./bow";
 import { FontSelect } from "./font-select";
 import { COLORS } from "./studio-controls";
 import { StudioNav } from "./studio-nav";
 import { TableEditor } from "./table-editor";
 
-const ARTWORK_URL = "/TablePageArtwork.jpeg";
+type LoadedPicture = PicturePage & { data: string };
+type Sheet = { kind: "table"; page: TablePage } | { kind: "picture"; picture: LoadedPicture };
+
+// Downloads embed each image so every file prints on its own.
+async function loadImage(url: string): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("The table page artwork could not be loaded. Please try again.");
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("The table page artwork could not be read."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Picture pages are personal and kept out of git, so a checkout without them simply has none.
+async function loadPicture(picture: PicturePage): Promise<LoadedPicture | null> {
+  const found = await fetch(picture.file, { method: "HEAD" });
+  return found.status === 404 ? null : { ...picture, data: await loadImage(picture.file) };
+}
 
 function useTablePageSettings() {
   const [settings, setSettings] = useState(DEFAULT_TABLE_PAGE_SETTINGS);
@@ -39,6 +60,7 @@ function useTablePageSettings() {
 function useTablePageAssets(nameFontId: TablePageSettings["nameFontId"], headingFontId: TablePageSettings["headingFontId"]) {
   const [fonts, setFonts] = useState<{ key: string; nameFont?: Font; headingFont?: Font; error?: string }>();
   const [artwork, setArtwork] = useState("");
+  const [pictures, setPictures] = useState<LoadedPicture[]>([]);
   const [artError, setArtError] = useState("");
   const [revision, setRevision] = useState(0);
   const key = `${nameFontId}:${headingFontId}`;
@@ -48,25 +70,22 @@ function useTablePageAssets(nameFontId: TablePageSettings["nameFontId"], heading
       .catch((error) => { if (active) setFonts({ key, error: error instanceof Error ? error.message : "Please try another font." }); });
     return () => { active = false; };
   }, [key, nameFontId, headingFontId, revision]);
-  // Downloads embed the artwork so every file prints on its own.
   useEffect(() => {
     let active = true;
-    fetch(ARTWORK_URL).then((response) => {
-      if (!response.ok) throw new Error("The table page artwork could not be loaded. Please try again.");
-      return response.blob();
-    }).then((blob) => new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(new Error("The table page artwork could not be read."));
-      reader.readAsDataURL(blob);
-    })).then((value) => { if (active) setArtwork(value); }).catch((error) => { if (active) setArtError(error.message); });
+    Promise.all([loadImage(ARTWORK_URL), Promise.all(PICTURE_PAGES.map(loadPicture))]).then(([art, loaded]) => {
+      if (!active) return;
+      setArtwork(art);
+      setPictures(loaded.filter((picture) => picture !== null));
+    }).catch((error) => { if (active) setArtError(error.message); });
     return () => { active = false; };
   }, [revision]);
   const current = fonts?.key === key ? fonts : undefined;
-  return { nameFont: current?.nameFont, headingFont: current?.headingFont, artwork, error: artError || current?.error, retry: () => { setArtError(""); setRevision((value) => value + 1); } };
+  return { nameFont: current?.nameFont, headingFont: current?.headingFont, artwork, pictures, error: artError || current?.error, retry: () => { setArtError(""); setRevision((value) => value + 1); } };
 }
 
 const fileSlug = (page: TablePage) => page.heading.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "table";
+const sheetName = (sheet: Sheet) => sheet.kind === "table" ? sheet.page.heading : sheet.picture.name;
+const sheetSlug = (sheet: Sheet) => sheet.kind === "table" ? fileSlug(sheet.page) : `picture-${sheet.picture.id}`;
 
 export function TablePageStudio() {
   const project = useProject();
@@ -74,6 +93,7 @@ export function TablePageStudio() {
   const assets = useTablePageAssets(settings.nameFontId, settings.headingFontId);
   const deferredTables = useDeferredValue(project.tables);
   const [activeId, setActiveId] = useState(WEDDING_TABLES[0].id);
+  const [pictureId, setPictureId] = useState<string | null>(null);
   const [format, setFormat] = useState<ExportFormat>("png");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -84,24 +104,31 @@ export function TablePageStudio() {
     catch { return { pages: [], errors: ["This font could not shape one of the names. Please try a different font."], warnings: [] }; }
   }, [assets.nameFont, assets.headingFont, deferredTables, settings]);
   const guests = project.tables.reduce((count, table) => count + parseNames(table.names).length, 0);
-  const pageIndex = Math.max(0, layout.pages.findIndex((page) => page.tableId === activeId));
-  const current = layout.pages[pageIndex];
+  const sheets: Sheet[] = [...layout.pages.map((page) => ({ kind: "table" as const, page })), ...assets.pictures.map((picture) => ({ kind: "picture" as const, picture }))];
+  // Tables come first. With no table pages (or none selected yet), nothing is current until a picture is chosen.
+  const pictureIndex = assets.pictures.findIndex((picture) => picture.id === pictureId);
+  const pageIndex = pictureIndex >= 0 ? layout.pages.length + pictureIndex : layout.pages.length ? Math.max(0, layout.pages.findIndex((page) => page.tableId === activeId)) : -1;
+  const current = sheets[pageIndex] as Sheet | undefined;
   const loading = !ready || !project.ready || (!assets.nameFont && !assets.error);
   const updating = project.tables !== deferredTables;
   const errors = [...layout.errors, ...(assets.error ? [assets.error] : []), ...(actionError ? [actionError] : [])];
-  const canExport = !loading && !updating && !errors.length && layout.pages.length > 0 && !!assets.artwork && !busy;
+  const canExport = !loading && !updating && !errors.length && sheets.length > 0 && !!assets.artwork && !busy;
+  const showTable = (id: string) => { setPictureId(null); setActiveId(id); };
+  const changeTables = (tables: Table[]) => { setPictureId(null); project.setTables(tables); };
+  const showSheet = (sheet: Sheet) => { if (sheet.kind === "table") showTable(sheet.page.tableId); else setPictureId(sheet.picture.id); };
+  const printableSvg = (sheet: Sheet) => sheet.kind === "table" ? tablePageSvg(sheet.page, assets.artwork, settings.color) : picturePageSvg(sheet.picture, sheet.picture.data);
 
   const download = async (onlyCurrent = false) => {
     if (!canExport) return;
     setBusy(true); setActionError("");
-    const pages = onlyCurrent ? [current] : layout.pages;
+    const pages = onlyCurrent && current ? [current] : sheets;
     try {
       const zip = pages.length > 1 ? new JSZip() : null;
-      for (const [index, page] of pages.entries()) {
-        setMessage(`Preparing ${page.heading} (${index + 1} of ${pages.length})…`);
-        const svg = tablePageSvg(page, assets.artwork, settings.color);
+      for (const [index, sheet] of pages.entries()) {
+        setMessage(`Preparing ${sheetName(sheet)} (${index + 1} of ${pages.length})…`);
+        const svg = printableSvg(sheet);
         const blob = format === "png" ? await svgToPng(svg, "#ffffff", PAGE_PIXELS) : new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-        const filename = `ever-after-${fileSlug(page)}.${format}`;
+        const filename = `ever-after-${sheetSlug(sheet)}.${format}`;
         if (zip) zip.file(filename, await blob.arrayBuffer()); else downloadBlob(blob, filename);
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
       }
@@ -126,7 +153,7 @@ export function TablePageStudio() {
         frame.contentWindow?.focus(); frame.contentWindow?.print();
       } catch (error) { setActionError(error instanceof Error ? error.message : "Printing could not be opened."); cleanup(); }
     };
-    frame.srcdoc = `<!doctype html><html><head><title>Ever After — Table Pages</title><style>@page{size:${PAGE.width}mm ${PAGE.height}mm;margin:0}*{box-sizing:border-box}body{margin:0}svg{display:block;width:${PAGE.width}mm;height:${PAGE.height}mm;break-after:page;print-color-adjust:exact;-webkit-print-color-adjust:exact}svg:last-child{break-after:auto}</style></head><body>${layout.pages.map((page) => tablePageSvg(page, assets.artwork, settings.color)).join("")}</body></html>`;
+    frame.srcdoc = `<!doctype html><html><head><title>Ever After — Table Pages</title><style>@page{size:${PAGE.width}mm ${PAGE.height}mm;margin:0}*{box-sizing:border-box}body{margin:0}svg{display:block;width:${PAGE.width}mm;height:${PAGE.height}mm;break-after:page;print-color-adjust:exact;-webkit-print-color-adjust:exact}svg:last-child{break-after:auto}</style></head><body>${sheets.map(printableSvg).join("")}</body></html>`;
     document.body.appendChild(frame);
   };
 
@@ -137,7 +164,7 @@ export function TablePageStudio() {
       <div className="workspace">
         <aside className="controls-panel card-controls" aria-label="Table page settings">
           <div className="card-controls-body">
-            <TableEditor tables={project.tables} activeId={activeId} setActiveId={setActiveId} setTables={project.setTables} guests={guests} ready={project.ready} description="Each table prints on its own page. Your tables are shared with the seating window." hint="One guest per line, first name and surname. The table number becomes the page heading." />
+            <TableEditor tables={project.tables} activeId={activeId} setActiveId={showTable} setTables={changeTables} guests={guests} ready={project.ready} description="Each table prints on its own page. Your tables are shared with the seating window." hint="One guest per line, first name and surname. The table number becomes the page heading." />
             <div className="card-control-section"><p className="eyebrow">02 / THE LETTERING</p>
               <label className="card-field" htmlFor="page-heading-font">Table heading</label><FontSelect id="page-heading-font" className="text-input" value={settings.headingFontId} disabled={!ready} onChange={(headingFontId) => update({ headingFontId: headingFontId as TablePageSettings["headingFontId"] })} />
               <label className="card-field" htmlFor="page-heading-size">Heading size <span>{settings.headingSize} pt</span></label><input id="page-heading-size" type="range" min="24" max="120" step="0.5" value={settings.headingSize} disabled={!ready} onChange={(event) => update({ headingSize: Number(event.target.value) })} />
@@ -150,21 +177,24 @@ export function TablePageStudio() {
               <span className="card-field">Lettering colour</span>
               <div className="color-options">{COLORS.map((color) => <button key={color.value} style={{ backgroundColor: color.value }} className={`color-swatch ${settings.color.toLowerCase() === color.value ? "selected" : ""}`} aria-label={`${color.name} lettering`} aria-pressed={settings.color.toLowerCase() === color.value} onClick={() => update({ color: color.value })}>{settings.color.toLowerCase() === color.value && <Check size={14} color={color.value === "#ffffff" || color.value === "#c6aa7b" ? "#24211e" : "#fff"} />}</button>)}<label className="custom-color" title="Choose any colour"><Plus size={15} /><input type="color" value={settings.color} aria-label="Custom lettering colour" onChange={(event) => update({ color: event.target.value })} /></label><span className="hex-color">{settings.color.toUpperCase()}</span></div>
             </div>
+            {assets.pictures.length > 0 && <div className="card-control-section"><p className="eyebrow">03 / PICTURE PAGES</p><p className="field-hint">These print with your tables at the same {PAGE.width / 10} × {PAGE.height / 10} cm, with no lettering.</p>
+              <div className="picture-page-options" role="group" aria-label="Preview a picture page">{assets.pictures.map((picture) => <button key={picture.id} className={picture.id === pictureId ? "selected" : ""} aria-label={`Preview ${picture.name}`} aria-pressed={picture.id === pictureId} onClick={() => setPictureId(picture.id)}><Image src={picture.file} width={92} height={130} alt="" unoptimized /></button>)}</div>
+            </div>}
           </div>
           <div className="download-panel card-download-panel">
             <div className="export-formats" role="group" aria-label="Table page download format"><button aria-pressed={format === "png"} className={format === "png" ? "selected" : ""} onClick={() => setFormat("png")}>PNG <small>300 DPI</small></button><button aria-pressed={format === "svg"} className={format === "svg" ? "selected" : ""} onClick={() => setFormat("svg")}>SVG <small>Print ready</small></button></div>
-            <button className="primary-button download-button" disabled={!canExport} onClick={() => void download()}>{busy ? <LoaderCircle size={16} className="spinning" /> : <ArrowDownToLine size={16} />}<span>{busy ? "Preparing pages…" : `Download ${layout.pages.length > 1 ? "all pages" : "page"}`}</span></button><button className="secondary-button card-print-button" disabled={!canExport} onClick={printPages}><Printer size={15} />Print / Save as PDF</button><p className="export-footnote">{layout.pages.length} {layout.pages.length === 1 ? "page" : "pages"} · {PAGE.width / 10} × {PAGE.height / 10} cm each<br />Multiple pages download together in a ZIP.</p>
+            <button className="primary-button download-button" disabled={!canExport} onClick={() => void download()}>{busy ? <LoaderCircle size={16} className="spinning" /> : <ArrowDownToLine size={16} />}<span>{busy ? "Preparing pages…" : `Download ${sheets.length > 1 ? "all pages" : "page"}`}</span></button><button className="secondary-button card-print-button" disabled={!canExport} onClick={printPages}><Printer size={15} />Print / Save as PDF</button><p className="export-footnote">{sheets.length} {sheets.length === 1 ? "page" : "pages"} · {PAGE.width / 10} × {PAGE.height / 10} cm each<br />Multiple pages download together in a ZIP.</p>
           </div>
         </aside>
         <section className="preview-panel" aria-label="Table page previews">
-          <div className="preview-header"><div className="preview-tabs"><button className="selected" aria-pressed="true">Table pages{layout.pages.length > 0 && <span>{layout.pages.length}</span>}</button></div><span className="live-badge"><span />LIVE PREVIEW</span></div>
-          <div className="preview-summary"><div><strong>{guests}</strong><span>guests</span></div><span className="stat-divider" /><div><strong>{layout.pages.length || "—"}</strong><span>table pages</span></div><div className={`fit-badge ${errors.length ? "warning" : ""}`} data-testid="page-status">{errors.length || layout.warnings.length ? <TriangleAlert size={14} /> : <Check size={14} />}{loading ? "Preparing your pages" : errors.length ? "A little adjustment needed" : layout.warnings.length ? "Ready to print · check the spacing" : layout.pages.length ? "Ready to print" : "Ready for your guest list"}</div></div>
+          <div className="preview-header"><div className="preview-tabs"><button className="selected" aria-pressed="true">Table pages{sheets.length > 0 && <span>{sheets.length}</span>}</button></div><span className="live-badge"><span />LIVE PREVIEW</span></div>
+          <div className="preview-summary"><div><strong>{guests}</strong><span>guests</span></div><span className="stat-divider" /><div><strong>{layout.pages.length || "—"}</strong><span>table pages</span></div>{assets.pictures.length > 0 && <><span className="stat-divider" /><div><strong>{assets.pictures.length}</strong><span>picture pages</span></div></>}<div className={`fit-badge ${errors.length || layout.warnings.length ? "warning" : ""}`} data-testid="page-status">{errors.length || layout.warnings.length ? <TriangleAlert size={14} /> : <Check size={14} />}{loading ? "Preparing your pages" : errors.length ? "A little adjustment needed" : layout.warnings.length ? "Ready to print · check the spacing" : layout.pages.length ? "Ready to print" : "Ready for your guest list"}</div></div>
           {errors.length + layout.warnings.length > 0 && <div className="fit-notices" role="alert">{[...errors, ...layout.warnings].map((error) => <p key={error}><TriangleAlert size={15} /><span>{error}</span></p>)}{layout.fit && <button className="fit-action" onClick={() => update(layout.fit!)}><Sparkles size={14} />Give every table more room · names {layout.fit.nameSize} pt{layout.fit.headingSize !== settings.headingSize && ` / heading ${layout.fit.headingSize} pt`}</button>}{assets.error && <button className="text-button" onClick={assets.retry}>Try loading again</button>}{actionError && <button className="text-button" onClick={() => setActionError("")}>Dismiss</button>}</div>}
-          <div className="preview-toolbar"><div><span className="preview-toolbar-label">{current ? current.heading.toUpperCase() : "YOUR TABLE PAGE"}</span><span className="toolbar-detail">{current ? `${current.guests} guests · names ${settings.nameSize} pt${current.columns === 2 ? " · two columns" : ""}` : `${PAGE.width} × ${PAGE.height} mm`}</span></div></div>
+          <div className="preview-toolbar"><div><span className="preview-toolbar-label">{current ? sheetName(current).toUpperCase() : "YOUR TABLE PAGE"}</span><span className="toolbar-detail">{current?.kind === "table" ? `${current.page.guests} guests · names ${settings.nameSize} pt${current.page.columns === 2 ? " · two columns" : ""}` : `${PAGE.width} × ${PAGE.height} mm`}</span></div></div>
           <div className="preview-stage card-preview-stage" aria-busy={loading || updating}>
-            {loading ? <div className="preview-loading"><Bow /><LoaderCircle className="spinning" size={22} /><p>Making something lovely…</p></div> : current ? <div className="table-page-preview" role="img" aria-label={`Table page preview for ${current.heading}`} dangerouslySetInnerHTML={{ __html: tablePageSvg(current, ARTWORK_URL, settings.color) }} /> : <div className="preview-empty"><Heart size={28} /><h3>A page for every table.</h3><p>Add guests to a table to preview its page.</p></div>}
+            {loading ? <div className="preview-loading"><Bow /><LoaderCircle className="spinning" size={22} /><p>Making something lovely…</p></div> : current ? <div className="table-page-preview" role="img" aria-label={`${current.kind === "table" ? "Table" : "Picture"} page preview for ${sheetName(current)}`} dangerouslySetInnerHTML={{ __html: current.kind === "table" ? tablePageSvg(current.page, ARTWORK_URL, settings.color) : picturePageSvg(current.picture, current.picture.file) }} /> : <div className="preview-empty"><Heart size={28} /><h3>A page for every table.</h3><p>Add guests to a table to preview its page.</p></div>}
           </div>
-          <div className="preview-footer"><button className="text-button" disabled={!canExport} onClick={() => void download(true)}><ArrowDownToLine size={13} />This page</button><div className="page-navigation"><button className="icon-button" aria-label="Previous table page" disabled={pageIndex === 0} onClick={() => setActiveId(layout.pages[pageIndex - 1].tableId)}><ChevronLeft size={14} /></button><strong>{current ? `${pageIndex + 1} of ${layout.pages.length}` : "—"}</strong><button className="icon-button" aria-label="Next table page" disabled={pageIndex >= layout.pages.length - 1} onClick={() => setActiveId(layout.pages[pageIndex + 1].tableId)}><ChevronRight size={14} /></button></div></div>
+          <div className="preview-footer"><button className="text-button" disabled={!canExport} onClick={() => void download(true)}><ArrowDownToLine size={13} />This page</button><div className="page-navigation"><button className="icon-button" aria-label="Previous page" disabled={pageIndex <= 0} onClick={() => showSheet(sheets[pageIndex - 1])}><ChevronLeft size={14} /></button><strong>{current ? `${pageIndex + 1} of ${sheets.length}` : "—"}</strong><button className="icon-button" aria-label="Next page" disabled={pageIndex >= sheets.length - 1} onClick={() => showSheet(sheets[pageIndex + 1])}><ChevronRight size={14} /></button></div></div>
         </section>
       </div>
     </main><footer className="site-footer"><span>Your guest list stays on this device.</span><span>Made for a day you’ll <em>never forget.</em></span></footer>

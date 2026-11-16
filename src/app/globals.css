@@ -312,4 +312,21 @@ input[type="checkbox"] { accent-color: var(--color-camel-dark); }
 .table-page-preview { width: 400px; max-width: 100%; box-shadow: var(--shadow-paper); }
 .table-page-preview > svg { display: block; width: 100%; height: auto; }
 .table-page-studio .card-control-section .guides-toggle { margin-top: 18px; }
+.picture-page-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-top: 14px; }
+.picture-page-options button { padding: 0; aspect-ratio: 185 / 260; border: 1px solid var(--color-border); border-radius: 3px; overflow: hidden; background: var(--color-beige); }
+.picture-page-options button.selected { outline: 1px solid var(--color-camel-dark); outline-offset: 2px; }
+.picture-page-options img { display: block; width: 100%; height: 100%; object-fit: cover; }
 @media (max-width: 580px) { .table-page-studio .preview-toolbar { flex-wrap: wrap; } }
+.sticker-chip { max-width: 170px; }
+.sticker-chip b { font-weight: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sticker-studio .sticker-text { min-height: 74px; }
+.sticker-studio input[type="range"] { background: var(--color-beige); }
+.sticker-studio .dimension-fields { margin: 18px 0 4px; }
+.sticker-studio .segmented-control + .field-hint { margin-top: 10px; }
+.sticker-door-stage { align-items: flex-start; min-height: 0; padding: 26px; }
+.sticker-door-preview { display: grid; grid-template-columns: minmax(120px, 170px) minmax(0, 1fr); gap: 26px; width: 100%; }
+.sticker-door-preview .preview-caption { margin-bottom: 12px; }
+.door-view { position: relative; width: 100%; box-shadow: var(--shadow-paper); }
+.door-view > svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.door-caption-note { margin-top: 12px; font-size: 10px; line-height: 1.7; color: var(--color-muted); }
+@media (max-width: 800px) { .sticker-door-preview { grid-template-columns: minmax(0, 1fr); } .sticker-whole-door { order: 2; width: min(170px, 60%); margin-inline: auto; } .sticker-door-stage { padding: 16px; } }

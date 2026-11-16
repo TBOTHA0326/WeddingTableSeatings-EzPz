@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseFont } from "../src/lib/fonts";
-import { DEFAULT_TABLE_PAGE_SETTINGS, PAGE, createTablePages, restoreTablePageSettings, tableHeading, tablePageSvg } from "../src/lib/table-pages";
+import { DEFAULT_TABLE_PAGE_SETTINGS, PAGE, PICTURE_PAGES, createTablePages, picturePageSvg, restoreTablePageSettings, tableHeading, tablePageSvg } from "../src/lib/table-pages";
 import { DEFAULT_SETTINGS, EXAMPLE_TABLES, WEDDING_GUESTS, WEDDING_TABLES, parseNames, restoreProject } from "../src/lib/project";
 
 const font = parseFont(new Uint8Array(readFileSync("public/fonts/heirloom.otf")));
@@ -102,4 +102,14 @@ test("The wedding seating plan prints at the default sizes, and untouched exampl
   assert.deepEqual(restoreProject(JSON.stringify({ tables: EXAMPLE_TABLES, settings: DEFAULT_SETTINGS }))!.tables, WEDDING_TABLES);
   const edited = [{ ...EXAMPLE_TABLES[0], names: "Tiaan Botha" }, ...EXAMPLE_TABLES.slice(1)];
   assert.deepEqual(restoreProject(JSON.stringify({ tables: edited, settings: DEFAULT_SETTINGS }))!.tables, edited);
+});
+
+test("Picture pages fill the page size with only the image, keeping the chosen side when trimmed", () => {
+  assert.deepEqual(PICTURE_PAGES.map((picture) => picture.id), ["monogram", "date", "hands", "ring", "couple"]);
+  const svg = picturePageSvg(PICTURE_PAGES[0], "data:image/jpeg;base64,example");
+  assert.match(svg, /width="185mm" height="260mm" viewBox="0 0 185 260"/);
+  assert.match(svg, /<image href="data:image\/jpeg;base64,example" width="185" height="260" preserveAspectRatio="xMidYMid slice"\/>/);
+  assert.match(svg, /<title>T &amp; H monogram — Ever After<\/title>/);
+  assert.doesNotMatch(svg, /<path\b|<text\b|font-family|data-name/);
+  assert.match(picturePageSvg(PICTURE_PAGES.find((picture) => picture.id === "hands")!, "x"), /preserveAspectRatio="xMinYMid slice"/);
 });

@@ -9,3 +9,7 @@ next-env.d.ts
 test-results/
 playwright-report/
 .DS_Store
+
+# Personal photos printed as picture pages: this repository is public.
+/public/picture-pages/
+/output/for-printing/
