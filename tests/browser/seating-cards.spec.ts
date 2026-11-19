@@ -134,3 +134,18 @@ test("Six-card A4 preview updates names and a custom layout can be overridden an
   await expect(page.getByLabel("Card width")).toHaveValue("61");
   await expect(page.locator(".card-sheet-preview [data-name]")).toHaveCount(6);
 });
+
+test("Surname-below layout stacks each name in two lines and persists", async ({ page }) => {
+  await page.goto("/seating-cards");
+  await expect(page.getByTestId("card-status")).toContainText("Ready to cut & fold");
+  await page.getByLabel("GUEST NAMES", { exact: true }).fill("Amelia van der Merwe");
+  await page.getByRole("button", { name: "Flat card", exact: true }).click();
+  const name = page.locator('.card-artwork [data-name="Amelia van der Merwe"]');
+  await expect(name.locator("path")).toHaveCount(1);
+  await page.getByRole("button", { name: "Surname below", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Surname below", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(name.locator("path")).toHaveCount(2);
+  await page.reload();
+  await expect(page.getByTestId("card-status")).toContainText("Ready to cut & fold");
+  await expect(page.getByRole("button", { name: "Surname below", exact: true })).toHaveAttribute("aria-pressed", "true");
+});

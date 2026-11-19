@@ -9,15 +9,28 @@ export const CARD_GAP = 4;
 export const CARD_STORAGE_KEY = "ever-after-cards-v1";
 export const CARD_GUESTS_KEY = "ever-after-card-guests-v1";
 export const SIX_CARD_WIDTH = Math.floor((A4.height - 2 * CARD_MARGIN - 2 * CARD_GAP) / (3 * CARD_ASPECT));
-export type CardSettings = { width: number; fontSize: number; fontId: FontId | "custom"; guides: boolean; sheetLayout: "six" | "custom" };
-export const DEFAULT_CARD_SETTINGS: CardSettings = { width: SIX_CARD_WIDTH, fontSize: 32, fontId: "heirloom", guides: true, sheetLayout: "six" };
-export type CardGuest = { id: string; name: string };
-export type SeatingCard = { guest: CardGuest; label: Label; scale: number; x: number; y: number };
+export type NameLayout = "single" | "stacked";
+export type CardSettings = { width: number; fontSize: number; fontId: FontId | "custom"; guides: boolean; sheetLayout: "six" | "custom"; nameLayout: NameLayout };
+export const DEFAULT_CARD_SETTINGS: CardSettings = { width: SIX_CARD_WIDTH, fontSize: 32, fontId: "heirloom", guides: true, sheetLayout: "six", nameLayout: "single" };
+// The largest box each name layout may fill, as fractions of the lower (standing) panel, clear of the artwork's foliage.
+// "end" keeps one-line names low on the right like the reference; "centre" centres the first name over the surname.
+export const NAME_AREAS: Record<NameLayout, { x: number; y: number; width: number; height: number; align: "end" | "centre" }> = {
+  single: { x: 0.31, y: 0.625, width: 0.66, height: 0.32, align: "end" },
+  stacked: { x: 0.28, y: 0.2, width: 0.58, height: 0.6, align: "centre" },
+};
+export type CardGuest = { id: string; name: string; lines: string[] };
+export type SeatingCard = { guest: CardGuest; label: Label; scale: number; x: number; y: number; nameX: number; nameY: number };
 export type CardLayout = { pages: SeatingCard[][]; errors: string[]; capacity: number; height: number; resized: number };
 
 // Seating cards use one flat guest list, independent of the seating window's tables.
 export function cardGuests(raw: string): CardGuest[] {
-  return parseNames(raw).map((name, index) => ({ id: String(index), name: name.split("|").map((part) => part.trim()).filter(Boolean).join(" ") }));
+  return parseNames(raw).map((entry, index) => {
+    const parts = entry.split("|").map((part) => part.trim()).filter(Boolean);
+    const name = parts.join(" ");
+    // Without "|", split after the first name so compound surnames (van der Merwe) stay together when stacked.
+    const space = name.indexOf(" ");
+    return { id: String(index), name, lines: parts.length > 1 ? parts : space < 0 ? [name] : [name.slice(0, space), name.slice(space + 1)] };
+  });
 }
 
 export function restoreCardSettings(raw: string | null): CardSettings {
@@ -31,6 +44,7 @@ export function restoreCardSettings(raw: string | null): CardSettings {
       fontId: value.fontId === "custom" || FONTS.some((font) => font.id === value.fontId) ? value.fontId : "heirloom",
       guides: value.guides !== false,
       sheetLayout: value.sheetLayout === "custom" ? "custom" : "six",
+      nameLayout: value.nameLayout === "stacked" ? "stacked" : "single",
     };
   } catch { return DEFAULT_CARD_SETTINGS; }
 }
@@ -48,18 +62,25 @@ export function createCardLayout(font: Font, guests: CardGuest[], settings: Card
   if (missing.length) { result.errors.push(`This font is missing: ${missing.join(" ")}. Choose another font or import the full font file.`); return result; }
   const gridWidth = columns * settings.width + (columns - 1) * CARD_GAP;
   const gridHeight = rows * height + (rows - 1) * CARD_GAP;
+  const half = height / 2;
+  const area = NAME_AREAS[settings.nameLayout];
+  const box = { x: area.x * settings.width, y: half + area.y * half, width: area.width * settings.width, height: area.height * half };
   for (const [index, guest] of guests.entries()) {
-    const label = measureLabel(font, guest.name, index, { ...DEFAULT_SETTINGS, gap: 0, fontSize: settings.fontSize, nameStyle: "single" });
+    const stacked = settings.nameLayout === "stacked";
+    const label = measureLabel(font, stacked ? guest.lines.join("|") : guest.name, index, { ...DEFAULT_SETTINGS, gap: 0, fontSize: settings.fontSize, nameStyle: settings.nameLayout });
     if (!Number.isFinite(label.inkWidth) || !Number.isFinite(label.inkHeight) || label.inkWidth <= 0 || label.inkHeight <= 0 || !label.paths.some((path) => path.d)) {
       result.errors.push(`There is no printable lettering in “${guest.name}”.`); continue;
     }
-    // Match the reference's lower-right name area, measuring the actual flourishes.
-    const scale = Math.min(1, settings.width * 0.60 / label.inkWidth, height / 2 * 0.32 / label.inkHeight);
+    // Shrink only when the actual flourishes would leave the name area.
+    const scale = Math.min(1, box.width / label.inkWidth, box.height / label.inkHeight);
     if (scale < 1) result.resized++;
+    const spareX = box.width - label.inkWidth * scale;
+    const spareY = box.height - label.inkHeight * scale;
+    const share = area.align === "end" ? 1 : 0.5;
     const slot = index % result.capacity;
     const page = Math.floor(index / result.capacity);
     result.pages[page] ??= [];
-    result.pages[page].push({ guest, label, scale,
+    result.pages[page].push({ guest, label, scale, nameX: box.x + spareX * share, nameY: box.y + spareY * share,
       x: (A4.width - gridWidth) / 2 + (slot % columns) * (settings.width + CARD_GAP),
       y: (A4.height - gridHeight) / 2 + Math.floor(slot / columns) * (height + CARD_GAP),
     });
@@ -71,12 +92,8 @@ export function createCardLayout(font: Font, guests: CardGuest[], settings: Card
 export function cardMarkup(card: SeatingCard, width: number, artwork: string, guides = false): string {
   const height = width * CARD_ASPECT;
   const half = height / 2;
-  const inkWidth = card.label.inkWidth * card.scale;
-  const inkHeight = card.label.inkHeight * card.scale;
-  const nameX = width * 0.97 - inkWidth;
-  const nameY = half + half * 0.945 - inkHeight;
   const paths = card.label.paths.map((path) => `<path d="${path.d}" transform="translate(${path.x} ${path.y})"/>`).join("");
-  return `<g><title>${escapeXml(card.guest.name)}</title><image href="${escapeXml(artwork)}" width="${width}" height="${height}" preserveAspectRatio="none"/><g data-name="${escapeXml(card.guest.name)}" fill="#151310" transform="translate(${nameX} ${nameY}) scale(${card.scale})">${paths}</g>${guides ? `<rect width="${width}" height="${height}" fill="none" stroke="#837b70" stroke-width="0.15" stroke-dasharray="1 1"/><path d="M0 ${half}H${width}" stroke="#837b70" stroke-width="0.15" stroke-dasharray="2 1"/>` : ""}</g>`;
+  return `<g><title>${escapeXml(card.guest.name)}</title><image href="${escapeXml(artwork)}" width="${width}" height="${height}" preserveAspectRatio="none"/><g data-name="${escapeXml(card.guest.name)}" fill="#151310" transform="translate(${card.nameX} ${card.nameY}) scale(${card.scale})">${paths}</g>${guides ? `<rect width="${width}" height="${height}" fill="none" stroke="#837b70" stroke-width="0.15" stroke-dasharray="1 1"/><path d="M0 ${half}H${width}" stroke="#837b70" stroke-width="0.15" stroke-dasharray="2 1"/>` : ""}</g>`;
 }
 
 export function cardSheetSvg(cards: SeatingCard[], width: number, artwork: string, guides: boolean): string {

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseFont } from "../src/lib/fonts";
 import { A4 } from "../src/lib/layout";
-import { CARD_ASPECT, CARD_MARGIN, DEFAULT_CARD_SETTINGS, cardGuests, cardMarkup, cardSheetSvg, createCardLayout, restoreCardSettings } from "../src/lib/seating-cards";
+import { CARD_ASPECT, CARD_MARGIN, DEFAULT_CARD_SETTINGS, NAME_AREAS, cardGuests, cardMarkup, cardSheetSvg, createCardLayout, restoreCardSettings } from "../src/lib/seating-cards";
 
 const font = parseFont(new Uint8Array(readFileSync("public/fonts/heirloom.otf")));
 const guests = cardGuests("Tiaan | Botha\nAmelia | van der Merwe\nTiaan Botha");
@@ -13,6 +13,9 @@ test("Guest list preserves compound surnames and duplicate names as separate car
   assert.equal(guests[2].name, guests[0].name);
   assert.equal(guests.length, 3);
   assert.equal(new Set(guests.map((guest) => guest.id)).size, 3);
+  assert.deepEqual(guests[1].lines, ["Amelia", "van der Merwe"]);
+  assert.deepEqual(guests[2].lines, ["Tiaan", "Botha"]);
+  assert.deepEqual(cardGuests("Amelia van der Merwe\nMary Anne | Smith\nCher").map((guest) => guest.lines), [["Amelia", "van der Merwe"], ["Mary Anne", "Smith"], ["Cher"]]);
 });
 
 test("A4 packing preserves the artwork ratio, margins, and every card without overlaps", () => {
@@ -54,13 +57,34 @@ test("Name flourishes fit entirely in the lower-right panel, including very long
   assert.deepEqual(layout.errors, []);
   assert.equal(layout.resized, 1);
   const card = layout.pages[0][0];
-  assert.ok(card.label.inkWidth * card.scale <= DEFAULT_CARD_SETTINGS.width * 0.60 + 1e-7);
-  assert.ok(card.label.inkHeight * card.scale <= layout.height / 2 * 0.32 + 1e-7);
+  const area = NAME_AREAS.single;
+  assert.ok(card.label.inkWidth * card.scale <= DEFAULT_CARD_SETTINGS.width * area.width + 1e-7);
+  assert.ok(card.label.inkHeight * card.scale <= layout.height / 2 * area.height + 1e-7);
   const markup = cardMarkup(card, DEFAULT_CARD_SETTINGS.width, "data:image/jpeg;base64,example");
   const [x, y] = [...markup.matchAll(/transform="translate\(([^ ]+) ([^)]+)\) scale/g)][0].slice(1).map(Number);
-  assert.ok(x >= DEFAULT_CARD_SETTINGS.width * 0.37 - 1e-7);
+  assert.ok(x >= DEFAULT_CARD_SETTINGS.width * area.x - 1e-7);
+  assert.ok(Math.abs(x + card.label.inkWidth * card.scale - DEFAULT_CARD_SETTINGS.width * (area.x + area.width)) < 1e-7);
   assert.ok(y > layout.height / 2);
   assert.ok(y + card.label.inkHeight * card.scale < layout.height);
+});
+
+test("Stacked names centre the first name over the surname and print larger than one line", () => {
+  const settings = { ...DEFAULT_CARD_SETTINGS, fontSize: 60 };
+  const amelia = [guests[1]];
+  const single = createCardLayout(font, amelia, settings).pages[0][0];
+  const layout = createCardLayout(font, amelia, { ...settings, nameLayout: "stacked" });
+  assert.deepEqual(layout.errors, []);
+  const card = layout.pages[0][0];
+  assert.equal(card.label.paths.length, 2);
+  assert.ok(card.scale > single.scale * 1.3);
+  const half = layout.height / 2, area = NAME_AREAS.stacked, width = settings.width;
+  const [inkWidth, inkHeight] = [card.label.inkWidth * card.scale, card.label.inkHeight * card.scale];
+  assert.ok(inkWidth <= width * area.width + 1e-7 && inkHeight <= half * area.height + 1e-7);
+  assert.ok(Math.abs(card.nameX + inkWidth / 2 - width * (area.x + area.width / 2)) < 1e-7);
+  assert.ok(Math.abs(card.nameY + inkHeight / 2 - half * (1 + area.y + area.height / 2)) < 1e-7);
+  assert.equal(cardMarkup(card, width, "data:image/jpeg;base64,example").match(/<path d=/g)?.length, 2);
+  assert.equal(restoreCardSettings(JSON.stringify({ ...settings, nameLayout: "stacked" })).nameLayout, "stacked");
+  assert.equal(restoreCardSettings('{"nameLayout":"sideways"}').nameLayout, "single");
 });
 
 test("Exports embed the original artwork, outline lettering, and optional cut/fold guides", () => {
