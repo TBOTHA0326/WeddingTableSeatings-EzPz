@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseFont } from "../src/lib/fonts";
 import { A4 } from "../src/lib/layout";
-import { CARD_ASPECT, CARD_MARGIN, DEFAULT_CARD_SETTINGS, LINE_BALANCE, NAME_AREAS, cardGuests, cardMarkup, cardSheetSvg, createCardLayout, restoreCardSettings, type SeatingCard } from "../src/lib/seating-cards";
+import { CARD_ASPECT, CARD_GAP, CARD_MARGIN, DEFAULT_CARD_SETTINGS, LINE_BALANCE, NAME_AREAS, cardGuests, cardMarkup, cardSheetSvg, createCardLayout, restoreCardSettings, type SeatingCard } from "../src/lib/seating-cards";
 
 const font = parseFont(new Uint8Array(readFileSync("public/fonts/heirloom.otf")));
 const guests = cardGuests("Tiaan | Botha\nAmelia | van der Merwe\nTiaan Botha");
@@ -19,25 +19,34 @@ test("Guest list preserves compound surnames and duplicate names as separate car
 });
 
 test("A4 packing preserves the artwork ratio, margins, and every card without overlaps", () => {
-  for (const width of [60, 90, 100, 180]) {
+  for (const width of [60, 64, 65, 66, 70, 75, 90, 100, 180]) {
     const names = Array.from({ length: 25 }, (_, index) => ({ ...guests[index % guests.length], id: String(index) }));
     const layout = createCardLayout(font, names, { ...DEFAULT_CARD_SETTINGS, width, sheetLayout: "custom" });
     assert.deepEqual(layout.errors, []);
     assert.equal(layout.pages.flat().length, 25);
     assert.equal(layout.height, width * CARD_ASPECT);
+    const box = (card: SeatingCard) => ({ x: card.x, y: card.y, w: card.rotated ? layout.height : width, h: card.rotated ? width : layout.height });
     for (const page of layout.pages) {
       for (const card of page) {
-        assert.ok(card.x >= CARD_MARGIN && card.y >= CARD_MARGIN);
-        assert.ok(card.x + width <= A4.width - CARD_MARGIN + 1e-7);
-        assert.ok(card.y + layout.height <= A4.height - CARD_MARGIN + 1e-7);
+        const a = box(card);
+        assert.ok(a.x >= CARD_MARGIN - 1e-7 && a.y >= CARD_MARGIN - 1e-7);
+        assert.ok(a.x + a.w <= A4.width - CARD_MARGIN + 1e-7);
+        assert.ok(a.y + a.h <= A4.height - CARD_MARGIN + 1e-7);
         for (const other of page) {
           if (other === card) continue;
-          assert.ok(card.x + width <= other.x || other.x + width <= card.x || card.y + layout.height <= other.y || other.y + layout.height <= card.y);
+          const b = box(other);
+          assert.ok(a.x + a.w + CARD_GAP <= b.x + 1e-7 || b.x + b.w + CARD_GAP <= a.x + 1e-7 || a.y + a.h + CARD_GAP <= b.y + 1e-7 || b.y + b.h + CARD_GAP <= a.y + 1e-7);
         }
       }
     }
   }
   assert.equal(createCardLayout(font, guests, DEFAULT_CARD_SETTINGS).capacity, 6);
+  // Slightly wider cards keep most of the sheet: sideways or mixed strips instead of dropping to four.
+  const capacity = (width: number) => createCardLayout(font, guests, { ...DEFAULT_CARD_SETTINGS, width, sheetLayout: "custom" }).capacity;
+  assert.deepEqual([61, 64, 65, 67, 68, 70, 75, 90].map(capacity), [9, 9, 8, 8, 6, 6, 5, 4]);
+  const sideways = createCardLayout(font, guests, { ...DEFAULT_CARD_SETTINGS, width: 66, sheetLayout: "custom" });
+  assert.ok(sideways.pages[0].every((card) => card.rotated));
+  assert.match(cardSheetSvg(sideways.pages[0], 66, "data:image/jpeg;base64,example", false), /rotate\(90\)/);
 });
 
 test("Six-card preset packs two columns by three rows and custom overrides restore", () => {
