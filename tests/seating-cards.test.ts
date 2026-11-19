@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseFont } from "../src/lib/fonts";
 import { A4 } from "../src/lib/layout";
-import { CARD_ASPECT, CARD_MARGIN, DEFAULT_CARD_SETTINGS, NAME_AREAS, cardGuests, cardMarkup, cardSheetSvg, createCardLayout, restoreCardSettings } from "../src/lib/seating-cards";
+import { CARD_ASPECT, CARD_MARGIN, DEFAULT_CARD_SETTINGS, LINE_BALANCE, NAME_AREAS, cardGuests, cardMarkup, cardSheetSvg, createCardLayout, restoreCardSettings, type SeatingCard } from "../src/lib/seating-cards";
 
 const font = parseFont(new Uint8Array(readFileSync("public/fonts/heirloom.otf")));
 const guests = cardGuests("Tiaan | Botha\nAmelia | van der Merwe\nTiaan Botha");
@@ -57,16 +57,22 @@ test("Name flourishes fit entirely in the lower-right panel, including very long
   assert.deepEqual(layout.errors, []);
   assert.equal(layout.resized, 1);
   const card = layout.pages[0][0];
+  assert.equal(card.lines.length, 1);
+  const [line] = card.lines;
   const area = NAME_AREAS.single;
-  assert.ok(card.label.inkWidth * card.scale <= DEFAULT_CARD_SETTINGS.width * area.width + 1e-7);
-  assert.ok(card.label.inkHeight * card.scale <= layout.height / 2 * area.height + 1e-7);
+  assert.ok(line.label.inkWidth * line.scale <= DEFAULT_CARD_SETTINGS.width * area.width + 1e-7);
+  assert.ok(line.label.inkHeight * line.scale <= layout.height / 2 * area.height + 1e-7);
   const markup = cardMarkup(card, DEFAULT_CARD_SETTINGS.width, "data:image/jpeg;base64,example");
   const [x, y] = [...markup.matchAll(/transform="translate\(([^ ]+) ([^)]+)\) scale/g)][0].slice(1).map(Number);
   assert.ok(x >= DEFAULT_CARD_SETTINGS.width * area.x - 1e-7);
-  assert.ok(Math.abs(x + card.label.inkWidth * card.scale - DEFAULT_CARD_SETTINGS.width * (area.x + area.width)) < 1e-7);
+  assert.ok(Math.abs(x + line.label.inkWidth * line.scale - DEFAULT_CARD_SETTINGS.width * (area.x + area.width)) < 1e-7);
   assert.ok(y > layout.height / 2);
-  assert.ok(y + card.label.inkHeight * card.scale < layout.height);
+  assert.ok(y + line.label.inkHeight * line.scale < layout.height);
 });
+
+const inBox = (card: SeatingCard, height: number, area: (typeof NAME_AREAS)["stacked"], width: number) => card.lines.every((line) =>
+  line.x >= width * area.x - 1e-7 && line.x + line.label.inkWidth * line.scale <= width * (area.x + area.width) + 1e-7 &&
+  line.y >= height / 2 * (1 + area.y) - 1e-7 && line.y + line.label.inkHeight * line.scale <= height / 2 * (1 + area.y + area.height) + 1e-7);
 
 test("Stacked names centre the first name over the surname and print larger than one line", () => {
   const settings = { ...DEFAULT_CARD_SETTINGS, fontSize: 60 };
@@ -75,16 +81,42 @@ test("Stacked names centre the first name over the surname and print larger than
   const layout = createCardLayout(font, amelia, { ...settings, nameLayout: "stacked" });
   assert.deepEqual(layout.errors, []);
   const card = layout.pages[0][0];
-  assert.equal(card.label.paths.length, 2);
-  assert.ok(card.scale > single.scale * 1.3);
+  assert.equal(card.lines.length, 2);
+  assert.ok(Math.min(...card.lines.map((line) => line.scale)) > single.lines[0].scale * 1.3);
   const half = layout.height / 2, area = NAME_AREAS.stacked, width = settings.width;
-  const [inkWidth, inkHeight] = [card.label.inkWidth * card.scale, card.label.inkHeight * card.scale];
-  assert.ok(inkWidth <= width * area.width + 1e-7 && inkHeight <= half * area.height + 1e-7);
-  assert.ok(Math.abs(card.nameX + inkWidth / 2 - width * (area.x + area.width / 2)) < 1e-7);
-  assert.ok(Math.abs(card.nameY + inkHeight / 2 - half * (1 + area.y + area.height / 2)) < 1e-7);
+  assert.ok(inBox(card, layout.height, area, width));
+  const centres = card.lines.map((line) => line.x + line.label.inkWidth * line.scale / 2);
+  assert.ok(Math.abs(centres[0] - centres[1]) < 1e-7);
+  assert.ok(Math.abs(centres[0] - width * (area.x + area.width / 2)) < 1e-7);
+  const [top, bottom] = card.lines;
+  assert.ok(bottom.y > top.y + top.label.inkHeight * top.scale);
+  assert.ok(Math.abs((top.y + bottom.y + bottom.label.inkHeight * bottom.scale) / 2 - half * (1 + area.y + area.height / 2)) < 1e-7);
   assert.equal(cardMarkup(card, width, "data:image/jpeg;base64,example").match(/<path d=/g)?.length, 2);
   assert.equal(restoreCardSettings(JSON.stringify({ ...settings, nameLayout: "stacked" })).nameLayout, "stacked");
   assert.equal(restoreCardSettings('{"nameLayout":"sideways"}').nameLayout, "single");
+});
+
+test("A long surname shrinks on its own line without dragging the first name down to its size", () => {
+  const width = DEFAULT_CARD_SETTINGS.width;
+  for (const fontSize of [32, 60]) {
+    const layout = createCardLayout(font, cardGuests("Frans van Kradenburg\nGert Grobler"), { ...DEFAULT_CARD_SETTINGS, fontSize, nameLayout: "stacked" });
+    assert.deepEqual(layout.errors, []);
+    const [frans, gert] = layout.pages[0];
+    for (const card of [frans, gert]) {
+      assert.ok(inBox(card, layout.height, NAME_AREAS.stacked, width));
+      assert.ok(card.lines.every((line) => line.scale <= 1));
+      const [first, surname] = card.lines.map((line) => line.scale);
+      assert.ok(Math.max(first, surname) <= Math.min(first, surname) * LINE_BALANCE + 1e-9);
+    }
+    const [first, surname] = frans.lines.map((line) => line.scale);
+    assert.ok(surname < 1 && first > surname * 1.3);
+  }
+  const short = createCardLayout(font, cardGuests("Gert Grobler"), { ...DEFAULT_CARD_SETTINGS, fontSize: 24, nameLayout: "stacked" });
+  assert.equal(short.resized, 0);
+  assert.deepEqual(short.pages[0][0].lines.map((line) => line.scale), [1, 1]);
+  // Raising the size never makes any line print smaller.
+  const sizes = (fontSize: number) => createCardLayout(font, cardGuests("Tiaan Botha\nFrans van Kradenburg\nAlexandria | de Villiers"), { ...DEFAULT_CARD_SETTINGS, fontSize, nameLayout: "stacked" }).pages[0].flatMap((card) => card.lines.map((line) => line.scale * fontSize));
+  for (let fontSize = 12; fontSize < 60; fontSize += 4) sizes(fontSize).forEach((size, line) => assert.ok(sizes(fontSize + 4)[line] >= size - 1e-9));
 });
 
 test("Exports embed the original artwork, outline lettering, and optional cut/fold guides", () => {

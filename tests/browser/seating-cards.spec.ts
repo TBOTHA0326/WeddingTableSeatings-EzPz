@@ -17,7 +17,7 @@ test("Seating cards use their own guest list, print exact artwork with lower-pan
   await expect(page.getByRole("img", { name: "Fold-over seating card for Amelia van der Merwe", exact: true })).toBeVisible();
   const source = await readFile("public/ActualCardArtwork.jpeg");
   expect(await page.locator(".card-artwork image").getAttribute("href")).toBe(`data:image/jpeg;base64,${source.toString("base64")}`);
-  const nameTransform = await page.locator(".card-artwork [data-name]").getAttribute("transform");
+  const nameTransform = await page.locator(".card-artwork [data-name] > g").first().getAttribute("transform");
   expect(Number(nameTransform?.match(/translate\([^ ]+ ([^)]+)\)/)?.[1])).toBeGreaterThan(61 * 1150 / 787 / 2);
   await page.getByRole("button", { name: "SVG Print ready" }).click();
   await page.getByRole("button", { name: "A4 sheets", exact: true }).click();
